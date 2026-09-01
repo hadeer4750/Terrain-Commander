@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<meta name="theme-color" content="#081018" />
+
+<title>Terrain Commander</title>
+<style>
+:root{--bg:#061018;--panel:#0c1822;--line:#1b3445;--text:#f2f7fb;--muted:#9fb3c4;--a:#4fd1c5;--b:#58a6ff;--ok:#53d769;--warn:#ffcc66}
+*{box-sizing:border-box} body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial;background:radial-gradient(circle at top,#142533 0,#061018 55%);color:var(--text);min-height:100vh}
+.wrap{max-width:880px;margin:auto;padding:18px 14px 34px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px}.brand h1{font-size:25px;margin:0}.brand p{margin:3px 0 0;color:var(--muted);font-size:13px}.badge{padding:8px 11px;border:1px solid var(--line);border-radius:999px;color:#bfe8ff;background:#0b1a24;font-size:12px}.hero{margin-top:18px;background:linear-gradient(160deg,#102331,#0a151e);border:1px solid var(--line);border-radius:26px;padding:22px;box-shadow:0 20px 60px #0006;text-align:center}.orb{width:150px;height:150px;border-radius:50%;margin:5px auto 16px;display:grid;place-items:center;background:radial-gradient(circle,#2d7ca4 0,#123a4d 50%,#0c1c27 72%);border:1px solid #2b5a71;box-shadow:0 0 42px #37b8ff2e;transition:.25s}.orb.listening{transform:scale(1.04);box-shadow:0 0 60px #4fd1c566}.mic{font-size:48px}.status{font-size:18px;font-weight:750}.heard{min-height:42px;margin:9px auto 4px;color:#cce4f4;max-width:680px}.btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:16px;padding:13px 17px;font-weight:750;font-size:15px;color:#061018;background:linear-gradient(135deg,var(--a),#8be8df);cursor:pointer}button.secondary{color:var(--text);background:#132633;border:1px solid #284658}button.danger{color:#fff;background:#713747}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px}.card{background:#0b1720;border:1px solid var(--line);border-radius:20px;padding:16px}.card h3{margin:0 0 9px;font-size:16px}.card p,.hint{margin:0;color:var(--muted);font-size:13px;line-height:1.7}.quick{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:10px}.q{background:#112633;color:#e9f6ff;border:1px solid #244558;padding:12px 8px;font-size:13px}.log{margin-top:13px;max-height:220px;overflow:auto}.row{padding:10px 0;border-bottom:1px solid #183040;font-size:13px}.row b{color:#8fe6de}.settings label{display:block;color:#b8cad7;font-size:12px;margin:9px 0 5px}.settings input,.settings select{width:100%;background:#07121a;color:#fff;border:1px solid #29485a;border-radius:12px;padding:11px;font-size:14px}.foot{color:#708b9d;text-align:center;font-size:11px;margin-top:18px;line-height:1.6}.pill{display:inline-block;padding:3px 8px;border-radius:99px;background:#123221;color:#9af1ad;font-size:11px}.install{display:none}
+@media(max-width:650px){.grid{grid-template-columns:1fr}.quick{grid-template-columns:repeat(2,1fr)}.orb{width:130px;height:130px}.hero{padding:18px 12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top"><div class="brand"><h1>🚙 Terrain Commander</h1><p>مساعد صوتي للسيارة — Android / Bluetooth</p></div><div class="badge" id="netBadge">● متصل</div></div>
+  <section class="hero">
+    <div id="orb" class="orb"><div class="mic">🎙️</div></div>
+    <div id="status" class="status">اضغط وقل أمرك</div>
+    <div id="heard" class="heard">مثال: «وصلني للبيت» أو «شغّل أغنية كذا»</div>
+    <div class="btns"><button id="listenBtn">🎙️ بدء التفاعل الصوتي</button><button id="stopBtn" class="secondary">⏹ إيقاف</button><button id="micTestBtn" class="secondary">فحص الميكروفون</button><button id="installBtn" class="secondary install">تثبيت على الهاتف</button></div><p class="hint" id="micState" style="margin-top:10px">الميكروفون: لم يتم الفحص بعد</p>
+  </section>
+
+  <div class="grid">
+    <section class="card"><h3>⚡ أوامر سريعة</h3><div class="quick">
+      <button class="q" data-command="وصلني للبيت">🏠 البيت</button><button class="q" data-command="أقرب محطة وقود">⛽ وقود</button>
+      <button class="q" data-command="أقرب مطعم">🍽️ مطعم</button><button class="q" data-command="افتح الخرائط">🗺️ خرائط</button>
+      <button class="q" data-command="شغل موسيقى">🎵 موسيقى</button><button class="q" data-command="ابحث في جوجل">🔎 بحث</button>
+      <button class="q" data-command="ما هو الوقت">🕒 الوقت</button><button class="q" id="sosBtn">🆘 طوارئ</button>
+    </div><p class="hint" style="margin-top:10px">الأوامر التي قد تحتاج اسمًا ستطلب منك التفاصيل صوتيًا أو تفتح البحث المناسب.</p></section>
+
+    <section class="card settings"><h3>⚙️ الإعدادات</h3>
+      <label>عنوان البيت</label><input id="home" placeholder="مثال: البصرة، الجزائر" />
+      <label>تطبيق الموسيقى</label><select id="music"><option value="youtube">YouTube Music / YouTube</option><option value="spotify">Spotify</option></select>
+      <label>لغة الاستماع</label><select id="lang"><option value="ar-IQ">العربية — العراق</option><option value="ar-SA">العربية</option><option value="en-US">English</option></select>
+      <label><input id="voiceReply" type="checkbox" checked style="width:auto"> الرد الصوتي</label>
+      <button id="saveBtn" style="width:100%;margin-top:9px">حفظ الإعدادات</button>
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:12px"><h3>🧠 ما الذي يفهمه؟ <span class="pill">تنفيذ أوامر محددة</span></h3><p>الملاحة: «وصلني للبيت»، «وديني لمطار البصرة»، «أقرب محطة وقود». الموسيقى: «شغل/ابحث عن أغنية …». الاتصال: «اتصل على 07…». واتساب: «واتساب 07…». البحث: «ابحث عن …». ويمكنك كتابة الأمر أيضًا:</p><div style="display:flex;gap:8px;margin-top:10px"><input id="textCmd" style="flex:1;background:#07121a;color:#fff;border:1px solid #29485a;border-radius:12px;padding:12px" placeholder="اكتب الأمر هنا"><button id="runText">تنفيذ</button></div></section>
+  <section class="card log"><h3>📜 سجل الأوامر</h3><div id="log"></div></section>
+  <div class="foot">مهم: التطبيق لا تتحكم بوظائف السيارة الداخلية مثل المكيّف، القفل، النوافذ أو تشغيل المحرك. هذه تحتاج واجهة GM/OnStar أو تكاملًا أصليًا مصرحًا به. استخدم الأوامر الصوتية أثناء القيادة وتجنب لمس الهاتف.</div>
+</div>
+<script>
+const $=s=>document.querySelector(s); let recognition=null, deferredPrompt=null, listeningWanted=false, recognitionRunning=false, speaking=false, restartTimer=null;
+const cfg={home:localStorage.home||'',music:localStorage.music||'youtube',lang:localStorage.lang||'ar-IQ',voiceReply:localStorage.voiceReply!=='false'};
+function load(){ $('#home').value=cfg.home;$('#music').value=cfg.music;$('#lang').value=cfg.lang;$('#voiceReply').checked=cfg.voiceReply } load();
+function log(cmd,result){const d=document.createElement('div');d.className='row';d.innerHTML=`<b>${new Date().toLocaleTimeString('ar-IQ')}</b> — ${escapeHtml(cmd)}<br><span style="color:#8ca6b7">${escapeHtml(result)}</span>`;$('#log').prepend(d)}
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
+function say(t){
+ $('#status').textContent=t;
+ if(!cfg.voiceReply){ scheduleRecognitionRestart(250); return; }
+ try{
+   speaking=true;
+   if(recognitionRunning){ try{recognition.abort()}catch(e){} }
+   speechSynthesis.cancel();
+   let u=new SpeechSynthesisUtterance(t);u.lang=cfg.lang;u.rate=.98;
+   u.onend=()=>{speaking=false;scheduleRecognitionRestart(300)};
+   u.onerror=()=>{speaking=false;scheduleRecognitionRestart(300)};
+   speechSynthesis.speak(u)
+ }catch(e){speaking=false;scheduleRecognitionRestart(300)}
+}
+function openUrl(u){location.href=u}
+const maps=q=>'https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(q);
+const nearby=q=>'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(q);
+function normalize(t){return t.replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨٩'.indexOf(c))).replace(/[۰-۹]/g,c=>String('۰۱۲۳۴۵۶۷۸۹'.indexOf(c))).trim().replace(/[؟?]/g,'').replace(/أ|إ|آ/g,'ا').toLowerCase()}
+function strip(t,words){let x=t; words.forEach(w=>x=x.replace(w,'')); return x.trim()}
+async function execute(raw){let t=normalize(raw); if(!t)return; $('#heard').textContent=raw;
+ let result='';
+ if(/وصلني.*البيت|وديني.*البيت|الى البيت|للبيت/.test(t)){if(!cfg.home){say('أدخل عنوان البيت من الإعدادات أولاً');result='عنوان البيت غير محفوظ'}else{say('حاضر، أفتح الطريق إلى البيت');result='فتح الملاحة إلى '+cfg.home;setTimeout(()=>openUrl(maps(cfg.home)),450)}}
+ else if(/افتح.*خرائط|الخرائط/.test(t)){say('أفتح الخرائط');result='فتح Google Maps';setTimeout(()=>openUrl('https://maps.google.com'),350)}
+ else if(/اقرب.*(محطه|محطة).*وقود|اقرب.*بنزين|محطة وقود/.test(t)){say('أبحث عن أقرب محطة وقود');result='بحث عن محطات الوقود';setTimeout(()=>openUrl(nearby('gas station')),350)}
+ else if(/اقرب.*مطعم/.test(t)){say('أبحث عن أقرب مطعم');result='بحث عن المطاعم القريبة';setTimeout(()=>openUrl(nearby('restaurant')),350)}
+ else if(/وديني|وصلني|خذني|روح بي|طريق الى|ملاحه الى|ملاحة الى/.test(t)){let q=strip(t,['وديني','وصلني','خذني','روح بي','طريق الى','ملاحه الى','ملاحة الى']);if(q){say('حاضر، أفتح الطريق');result='ملاحة إلى '+q;setTimeout(()=>openUrl(maps(q)),400)}else{say('قل لي المكان الذي تريد الذهاب إليه');result='بحاجة لوجهة'}}
+ else if(/شغل|شغّل|اغنيه|اغنية|موسيقى|ابحث.*اغنيه|ابحث.*اغنية/.test(t)){let q=strip(t,['شغل','شغّل','اغنيه','اغنية','موسيقى','ابحث عن','ابحث']);if(!q) q='music';let u=cfg.music==='spotify'?'https://open.spotify.com/search/'+encodeURIComponent(q):'https://www.youtube.com/results?search_query='+encodeURIComponent(q);say('حاضر، أبحث عن '+q);result='بحث موسيقى: '+q;setTimeout(()=>openUrl(u),400)}
+ else if(/اتصل|دق على/.test(t)){let n=(t.match(/(?:\+?964|0)?7\d{9}/)||[])[0];if(n){say('أفتح الاتصال');result='فتح الاتصال بالرقم';setTimeout(()=>openUrl('tel:'+n),300)}else{say('قل رقم الهاتف بعد كلمة اتصل');result='لم أجد رقم هاتف'}}
+ else if(/واتساب|واتس اب/.test(t)){let n=(t.match(/(?:\+?964|0)?7\d{9}/)||[])[0];if(n){let intl=n.startsWith('0')?'964'+n.slice(1):n.replace('+','');say('أفتح واتساب');result='فتح WhatsApp';setTimeout(()=>openUrl('https://wa.me/'+intl),300)}else{say('قل رقم الهاتف بعد كلمة واتساب');result='لم أجد رقم هاتف'}}
+ else if(/الوقت|كم الساعه|كم الساعة/.test(t)){let tm=new Date().toLocaleTimeString('ar-IQ',{hour:'2-digit',minute:'2-digit'});say('الوقت الآن '+tm);result='الوقت '+tm}
+ else if(/ابحث|دور لي|بحث/.test(t)){let q=strip(t,['ابحث عن','ابحث','دور لي عن','دور لي','بحث عن','بحث']);if(q){say('أبحث عن '+q);result='بحث Google: '+q;setTimeout(()=>openUrl('https://www.google.com/search?q='+encodeURIComponent(q)),350)}else{say('قل ماذا تريد أن أبحث عنه');result='بحاجة لعبارة بحث'}}
+ else {say('لم أفهم الأمر بالكامل، سأبحث عنه');result='بحث عام';setTimeout(()=>openUrl('https://www.google.com/search?q='+encodeURIComponent(raw)),450)}
+ log(raw,result); return result;
+}
+async function ensureMicPermission(){
+ if(!window.isSecureContext){
+   $('#micState').textContent='الميكروفون: الصفحة ليست في سياق آمن. افتحها عبر HTTPS أو localhost.';
+   return false;
+ }
+ if(!navigator.mediaDevices?.getUserMedia){
+   $('#micState').textContent='الميكروفون: المتصفح/العارض لا يسمح بالوصول للميكروفون.';
+   return false;
+ }
+ try{
+   const stream=await navigator.mediaDevices.getUserMedia({audio:true});
+   stream.getTracks().forEach(t=>t.stop());
+   $('#micState').textContent='الميكروفون: ✅ الصلاحية مفعلة';
+   return true;
+ }catch(e){
+   $('#micState').textContent='الميكروفون: ❌ لم تُمنح الصلاحية — اسمح للميكروفون من إعدادات الموقع';
+   $('#status').textContent='لا أستطيع سماعك قبل السماح بالميكروفون';
+   return false;
+ }
+}
+function scheduleRecognitionRestart(delay=350){
+ clearTimeout(restartTimer);
+ if(!listeningWanted || speaking) return;
+ restartTimer=setTimeout(()=>startRecognition(),delay);
+}
+function setupRecognition(){
+ const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+ if(!SR){
+   $('#status').textContent='التعرف الصوتي غير مدعوم في هذا المتصفح. افتح الصفحة في Chrome على Android.';
+   return false;
+ }
+ recognition=new SR();
+ recognition.lang=cfg.lang;
+ recognition.interimResults=true;
+ recognition.continuous=true;
+ recognition.maxAlternatives=1;
+ recognition.onstart=()=>{recognitionRunning=true;$('#orb').classList.add('listening');$('#status').textContent='أسمعك… تكلم الآن';$('#listenBtn').textContent='🎙️ التفاعل الصوتي يعمل'};
+ recognition.onspeechstart=()=>{$('#status').textContent='أسمع كلامك…'};
+ recognition.onresult=e=>{
+   let interim='';
+   for(let i=e.resultIndex;i<e.results.length;i++){
+     const txt=e.results[i][0].transcript.trim();
+     if(e.results[i].isFinal){
+       $('#heard').textContent=txt;
+       if(txt) execute(txt);
+     } else interim += txt+' ';
+   }
+   if(interim.trim()) $('#heard').textContent=interim.trim();
+ };
+ recognition.onerror=e=>{
+   if(e.error==='not-allowed'||e.error==='service-not-allowed'){
+     listeningWanted=false;
+     $('#micState').textContent='الميكروفون: ❌ الصلاحية مرفوضة';
+     $('#status').textContent='اسمح باستخدام الميكروفون من إعدادات Chrome ثم اضغط بدء التفاعل الصوتي';
+   }else if(e.error!=='aborted' && e.error!=='no-speech'){
+     $('#status').textContent='تعذر الاستماع: '+e.error;
+   }
+ };
+ recognition.onend=()=>{
+   recognitionRunning=false;$('#orb').classList.remove('listening');
+   if(listeningWanted && !speaking) scheduleRecognitionRestart(300);
+ };
+ return true;
+}
+async function startRecognition(){
+ if(!listeningWanted || speaking || recognitionRunning) return;
+ if(!recognition && !setupRecognition()) return;
+ recognition.lang=cfg.lang;
+ try{recognition.start()}catch(e){scheduleRecognitionRestart(500)}
+}
+$('#listenBtn').onclick=async()=>{
+ const ok=await ensureMicPermission(); if(!ok)return;
+ listeningWanted=true;
+ if(!recognition) setupRecognition();
+ startRecognition();
+};
+$('#stopBtn').onclick=()=>{
+ listeningWanted=false;clearTimeout(restartTimer);
+ try{recognition?.abort()}catch(e){}
+ speechSynthesis.cancel();speaking=false;
+ $('#orb').classList.remove('listening');$('#listenBtn').textContent='🎙️ بدء التفاعل الصوتي';$('#status').textContent='التفاعل الصوتي متوقف';
+};
+$('#micTestBtn').onclick=async()=>{const ok=await ensureMicPermission();if(ok)say('الميكروفون يعمل. أقدر أسمعك الآن')};
+document.querySelectorAll('[data-command]').forEach(b=>b.onclick=()=>execute(b.dataset.command));$('#runText').onclick=()=>execute($('#textCmd').value);$('#textCmd').addEventListener('keydown',e=>{if(e.key==='Enter')execute(e.target.value)});
+$('#saveBtn').onclick=()=>{cfg.home=$('#home').value.trim();cfg.music=$('#music').value;cfg.lang=$('#lang').value;cfg.voiceReply=$('#voiceReply').checked;Object.entries(cfg).forEach(([k,v])=>localStorage[k]=v);listeningWanted=false;try{recognition?.abort()}catch(e){};recognition=null;say('تم حفظ الإعدادات');log('حفظ الإعدادات','تم الحفظ على هذا الجهاز')};
+$('#sosBtn').onclick=()=>{say('للطوارئ استخدم رقم الطوارئ المحلي أو زر أون ستار في السيارة إن كان متاحاً');log('طوارئ','لم يتم إجراء اتصال تلقائي لتجنب الاتصال غير المقصود')};
+window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferredPrompt=e;$('#installBtn').style.display='inline-block'});$('#installBtn').onclick=async()=>{if(deferredPrompt){deferredPrompt.prompt();await deferredPrompt.userChoice;deferredPrompt=null;$('#installBtn').style.display='none'}};
+function net(){let on=navigator.onLine;$('#netBadge').textContent=on?'● متصل':'● بدون إنترنت';$('#netBadge').style.color=on?'#bfe8ff':'#ffcc66'}addEventListener('online',net);addEventListener('offline',net);net();
+if(!window.AndroidVoice)setupRecognition();if(!window.AndroidVoice&&!window.isSecureContext)$('#micState').textContent='الميكروفون: ⚠️ يحتاج HTTPS أو localhost';
+</script>
+
+<script>
+if (window.AndroidVoice) {
+  let micTestPending=false;
+  startRecognition = async function(){
+    if(!listeningWanted || speaking || recognitionRunning) return;
+    recognitionRunning=true;
+    AndroidVoice.startListening(cfg.lang);
+  };
+  say = function(t){
+    $('#status').textContent=t;
+    AndroidVoice.stopListening(); recognitionRunning=false;
+    if(!cfg.voiceReply){ scheduleRecognitionRestart(250); return; }
+    speaking=true; AndroidVoice.speak(t,cfg.lang);
+  };
+  openUrl = function(u){ AndroidVoice.openUrl(u); };
+  function stopNative(){
+    listeningWanted=false; clearTimeout(restartTimer);
+    AndroidVoice.stopListening(); AndroidVoice.stopSpeaking();
+    speaking=false; recognitionRunning=false;
+    $('#orb').classList.remove('listening');
+    $('#listenBtn').textContent='🎙️ بدء التفاعل الصوتي';
+    $('#status').textContent='التفاعل الصوتي متوقف';
+  }
+  window.NativeVoice = {
+    onReady:function(){
+      $('#micState').textContent='الميكروفون: ✅ الصلاحية مفعّلة';
+      if(micTestPending){micTestPending=false;say('صلاحية الميكروفون مفعّلة. اضغط بدء التفاعل لتجربة الاستماع');}
+      else if(listeningWanted)startRecognition();
+    },
+    onListening:function(){recognitionRunning=true;$('#orb').classList.add('listening');$('#status').textContent='أسمعك…';$('#listenBtn').textContent='🎙️ التفاعل الصوتي يعمل';},
+    onResult:function(txt){recognitionRunning=false;$('#heard').textContent=txt;if(txt)execute(txt);},
+    onEnd:function(){recognitionRunning=false;$('#orb').classList.remove('listening');scheduleRecognitionRestart(450);},
+    onError:function(msg,fatal){
+      recognitionRunning=false;$('#orb').classList.remove('listening');
+      if(fatal){stopNative();micTestPending=false;}else scheduleRecognitionRestart(1200);
+      $('#status').textContent=msg;
+    },
+    onNotice:function(msg){$('#micState').textContent=msg;},
+    onSpeakDone:function(){speaking=false;scheduleRecognitionRestart(450);},
+    onPause:stopNative
+  };
+  $('#stopBtn').onclick=stopNative;
+  $('#listenBtn').onclick=()=>{listeningWanted=true;AndroidVoice.requestMic();};
+  $('#micTestBtn').onclick=()=>{micTestPending=true;AndroidVoice.requestMic();};
+  const saveSettings=$('#saveBtn').onclick;
+  $('#saveBtn').onclick=()=>{stopNative();saveSettings();};
+  $('#micState').textContent='اسمح بالميكروفون عند بدء الاستماع. يعمل الاستماع أثناء فتح التطبيق.';
+}
+</script>
+</body></html>

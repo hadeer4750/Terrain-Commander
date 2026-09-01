@@ -1,9 +1,27 @@
-# Terrain Commander
+# Terrain Commander — Android 2.0
 
-Android voice assistant project for use with a phone connected to a vehicle over Bluetooth.
+مساعد أوامر صوتية عربي للهاتف، مع إخراج الرد عبر مسار صوت الوسائط الذي يختاره Android (ومن ضمنه Bluetooth عند توصيل السيارة).
 
-Planned features include Arabic voice commands, spoken replies, navigation and media shortcuts. Bluetooth audio and microphone support depend on the phone and vehicle.
+## الوظائف
+- أوامر صوتية ونصية للملاحة، البيت، الوقود والمطاعم القريبة.
+- البحث عن الموسيقى في YouTube أو Spotify، وفتح بحث Google.
+- فتح لوحة الاتصال لرقم هاتف أو فتح محادثة WhatsApp؛ الإرسال والاتصال يؤكدهما المستخدم في التطبيق المعني.
+- الوقت، حفظ عنوان البيت واللغة وتفضيلات الصوت على الهاتف.
+- إعادة الاستماع بعد الرد أثناء فتح التطبيق. يتوقف عند الانتقال لتطبيق آخر أو إغلاق الشاشة، ويمكن بدء جلسة جديدة بالزر.
 
-## Status
+## التثبيت
+من GitHub Actions افتح آخر بناء ناجح ثم نزّل Terrain-Commander-APK وفك ZIP وثبّت Terrain-Commander-2.0.apk. يتطلب Android 8 أو أحدث. هذه نسخة debug موقعة للتجربة وليست إصدار متجر.
 
-Repository setup in progress. Android source code and an APK build workflow have not yet been uploaded.
+اسمح بالميكروفون عند الطلب. يلزم محرك تعرف صوتي ومحرك نطق يدعمان العربية؛ قد يستخدم محرك التعرف اتصال الإنترنت. اربط الهاتف بالسيارة واختر Bluetooth Audio لسماع الرد. استخدام ميكروفون السيارة يعتمد على Android ووحدة السيارة؛ التطبيق لا يفرض مسار ميكروفون Bluetooth ولا يضمنه.
+
+## حدود هذه النسخة
+هذه أوامر محددة وليست محادثة AI عامة. لا يوجد تنبيه بكلمة أو تشغيل دائم في الخلفية، ولا تحكم بوظائف السيارة الداخلية أو عرض على شاشة Android Auto. البحث عن أغنية يفتح نتائج البحث ولا يضمن تشغيلها تلقائيًا.
+
+## البناء
+JDK 17، Gradle 8.10.2، Android Gradle Plugin 8.7.3، SDK 35.
+
+```sh
+gradle :app:assembleDebug :app:lintDebug
+```
+
+يفحص GitHub Actions البناء وAndroid Lint وتوقيع APK وهوية الحزمة. يلزم اختبار الصوت والبلوتوث فعليًا على الهاتف والسيارة.
