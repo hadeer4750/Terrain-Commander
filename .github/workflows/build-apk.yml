@@ -68,4 +68,5 @@ jobs:
             app/build/reports/lint-results-debug.html
             app/build/reports/androidTests/
             app/build/reports/tests/
+            app/build/outputs/androidTest-results/
           if-no-files-found: ignore
