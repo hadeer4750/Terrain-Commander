@@ -18,3 +18,9 @@ vm.runInContext("execute('شغل موسيقى')",context);timers.splice(0).forEa
 vm.runInContext("execute('ابحث عن أغنية يا طيور')",context);timers.splice(0).forEach(fn=>fn());assert.match(urls.pop(),/^https:\/\/music.youtube.com\/search/);
 console.log('PASS: work missing/saved/navigation/voice-save, native song playback, empty query, explicit search, previous phone and microphone cases');
 
+
+nodes['#music'].value='youtube';nodes['#saveBtn'].onclick();assert.equal(context.localStorage.music,'youtube');
+vm.runInContext("execute('شغل أغنية يا طيور')",context);timers.splice(0).forEach(fn=>fn());assert.deepEqual(played.pop(),['يا طيور','youtube']);
+vm.runInContext("execute('ابحث عن أغنية يا طيور')",context);timers.splice(0).forEach(fn=>fn());assert.equal(urls.pop(),'https://www.youtube.com/results?search_query='+encodeURIComponent('يا طيور'));
+const reloaded={...context,window:null};reloaded.window=reloaded;vm.createContext(reloaded);vm.runInContext([...fs.readFileSync(require('node:path').join(__dirname,'../app/src/main/assets/index.html'),'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n'),reloaded);assert.equal(vm.runInContext('cfg.music',reloaded),'youtube');
+console.log('PASS: YouTube selection, playback dispatch, search URL, persistence across reload');

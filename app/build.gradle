@@ -1,5 +1,5 @@
 plugins { id 'com.android.application' }
 
 android { namespace 'com.terrain.commander'; compileSdk 35
-    defaultConfig { applicationId 'com.terrain.commander'; minSdk 26; targetSdk 35; versionCode 3; versionName '2.1' }
+    defaultConfig { applicationId 'com.terrain.commander'; minSdk 26; targetSdk 35; versionCode 4; versionName '2.2' }
 }

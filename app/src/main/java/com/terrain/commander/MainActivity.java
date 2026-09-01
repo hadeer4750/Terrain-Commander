@@ -79,7 +79,8 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
         stopMic();
         Intent intent=musicIntent(query.trim());
         if("spotify".equals(provider))intent.setPackage("com.spotify.music");
-        else if("youtube_music".equals(provider)||"youtube".equals(provider))intent.setPackage("com.google.android.apps.youtube.music");
+        else if("youtube_music".equals(provider))intent.setPackage("com.google.android.apps.youtube.music");
+        else if("youtube".equals(provider))intent.setPackage("com.google.android.youtube");
         try{startActivity(intent);}
         catch(ActivityNotFoundException|SecurityException e){
             new AlertDialog.Builder(this).setTitle("التشغيل المباشر غير متاح")
@@ -89,7 +90,7 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
                     if(other.resolveActivity(getPackageManager())!=null)startActivity(Intent.createChooser(other,"تشغيل الأغنية بواسطة"));
                     else js("NativeVoice.onNotice('لا يوجد مشغّل يدعم التشغيل بالبحث على الهاتف')");
                 })
-                .setNeutralButton("بحث يدوي",(dialog,which)->openExternal("spotify".equals(provider)?"https://open.spotify.com/search/"+Uri.encode(query):"https://music.youtube.com/search?q="+Uri.encode(query)))
+                .setNeutralButton("بحث يدوي",(dialog,which)->openExternal("spotify".equals(provider)?"https://open.spotify.com/search/"+Uri.encode(query):"youtube".equals(provider)?"https://www.youtube.com/results?search_query="+Uri.encode(query):"https://music.youtube.com/search?q="+Uri.encode(query)))
                 .setNegativeButton("إلغاء",null).show();
         }
     }
