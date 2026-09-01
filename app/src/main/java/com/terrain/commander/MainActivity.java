@@ -14,10 +14,14 @@ import android.speech.tts.TextToSpeech;
 import android.webkit.*;
 import android.media.AudioAttributes;
 import org.json.JSONObject;
+import org.json.JSONArray;
+import android.provider.DocumentsContract;
+import android.os.Build;
 import java.util.*;
 
 public class MainActivity extends Activity implements RecognitionListener, TextToSpeech.OnInitListener {
-    private static final int MIC_REQ=77;
+    private static final int MIC_REQ=77, FOLDER_REQ=78, NOTICE_REQ=79;
+    private LocalLibrary library;
     private WebView web;
     private SpeechRecognizer sr;
     private TextToSpeech tts;
@@ -25,6 +29,7 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
 
     @Override public void onCreate(Bundle b){ super.onCreate(b);
         web=new WebView(this); setContentView(web);
+        library=new LocalLibrary(this,message->js("NativeVoice.onLibrary("+q(message)+")"));
         web.setOnApplyWindowInsetsListener((v,insets)->{
             v.setPadding(insets.getSystemWindowInsetLeft(),insets.getSystemWindowInsetTop(),insets.getSystemWindowInsetRight(),insets.getSystemWindowInsetBottom());
             return insets;
@@ -52,6 +57,7 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
     }
     private void begin(String lang){
         if(listening)return;
+        if(MusicService.running)musicControl("pause");
         if(checkSelfPermission(Manifest.permission.RECORD_AUDIO)!=PackageManager.PERMISSION_GRANTED){ requestMic(); return; }
         if(sr==null){ error("خدمة التعرف الصوتي غير متاحة على الهاتف",true); return; }
         Intent intent=new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
@@ -75,6 +81,7 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
         return intent;
     }
     private void playMusic(String query,String provider){
+        if("local".equals(provider)||"system_local".equals(provider)){playLocalQuery(query,provider);return;}
         if(query==null||query.trim().isEmpty())return;
         stopMic();
         Intent intent=musicIntent(query.trim());
@@ -94,7 +101,61 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
                 .setNegativeButton("إلغاء",null).show();
         }
     }
+    private void chooseMusicFolder(){
+        Intent pick=new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION|Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION|Intent.FLAG_GRANT_PREFIX_URI_PERMISSION);
+        try{startActivityForResult(pick,FOLDER_REQ);}catch(ActivityNotFoundException e){js("NativeVoice.onLibrary('منتقي الملفات غير متاح على الهاتف')");}
+    }
+    @Override protected void onActivityResult(int request,int result,Intent data){
+        super.onActivityResult(request,result,data);
+        if(request==FOLDER_REQ&&result==RESULT_OK&&data!=null&&data.getData()!=null){
+            Uri tree=data.getData();
+            try{getContentResolver().takePersistableUriPermission(tree,Intent.FLAG_GRANT_READ_URI_PERMISSION);library.scan(tree);}
+            catch(SecurityException e){js("NativeVoice.onLibrary('لم يمنح المجلد صلاحية دائمة؛ اختر مجلدًا محليًا آخر')");}
+        }
+    }
+    private void playLocalQuery(String query,String provider){
+        if(library.busy()){js("NativeVoice.onLibrary('انتظر اكتمال قراءة المجلد')");return;}
+        JSONArray items=library.tracks();
+        if(items.length()==0){js("NativeVoice.onLibrary('اختر مجلد الموسيقى من قسم أغاني الهاتف أولاً')");return;}
+        int best=0;List<Integer> matches=new ArrayList<>();
+        for(int i=0;i<items.length();i++){
+            int score=TrackMatcher.score(items.optJSONObject(i).optString("title"),query==null?"":query);
+            if(query==null||query.trim().isEmpty()){matches.add(i);break;}
+            if(score>best){best=score;matches.clear();matches.add(i);}else if(score>0&&score==best)matches.add(i);
+        }
+        if(matches.isEmpty()){js("NativeVoice.onLibrary('لم أجد الاسم في ملفات المجلد؛ جرّب اسم الملف أو اختَر من القائمة')");return;}
+        if(matches.size()==1){playLocalTrack(matches.get(0),provider);return;}
+        String[] names=new String[Math.min(matches.size(),30)];for(int i=0;i<names.length;i++)names[i]=items.optJSONObject(matches.get(i)).optString("title");
+        new AlertDialog.Builder(this).setTitle("أي أغنية تقصد؟").setItems(names,(d,which)->playLocalTrack(matches.get(which),provider)).setNegativeButton("إلغاء",null).show();
+    }
+    private void playLocalTrack(int index,String provider){
+        JSONArray items=library.tracks();if(index<0||index>=items.length())return;
+        JSONObject track=items.optJSONObject(index);if(track==null)return;
+        stopMic();if(tts!=null)tts.stop();js("NativeVoice.onPause()");
+        if("system_local".equals(provider)){
+            if(MusicService.running)startService(new Intent(this,MusicService.class).setAction("pause"));
+            Uri uri=Uri.parse(track.optString("uri"));
+            Intent open=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,track.optString("mime","audio/*"));
+            open.setClipData(ClipData.newRawUri("أغنية",uri));open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+            try{startActivity(open);}catch(ActivityNotFoundException|SecurityException e){js("NativeVoice.onLibrary('لا يوجد مشغّل يقبل الملف. اختر المشغّل الداخلي من الإعدادات')");}
+        }else{
+            if(Build.VERSION.SDK_INT>=33&&checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},NOTICE_REQ);
+            startForegroundService(new Intent(this,MusicService.class).setAction("play").putExtra("index",index));
+        }
+    }
+    private void musicControl(String action){
+        if(!Arrays.asList("pause","resume","next","previous","stop").contains(action))return;
+        if(MusicService.running){startService(new Intent(this,MusicService.class).setAction(action));}
+        else js("NativeVoice.onLibrary('أزرار التحكم تخص المشغّل الداخلي؛ افتح أغنية داخله أولاً')");
+    }
     public class Bridge {
+        @JavascriptInterface public void chooseMusicFolder(){runOnUiThread(()->MainActivity.this.chooseMusicFolder());}
+        @JavascriptInterface public void refreshMusic(){runOnUiThread(()->library.refresh());}
+        @JavascriptInterface public String getLibrary(){return library.json();}
+        @JavascriptInterface public String getMusicState(){return MusicService.snapshot;}
+        @JavascriptInterface public void playLocalTrack(int index,String provider){runOnUiThread(()->MainActivity.this.playLocalTrack(index,provider));}
+        @JavascriptInterface public void musicControl(String action){runOnUiThread(()->MainActivity.this.musicControl(action));}
         @JavascriptInterface public void playMusic(String query,String provider){runOnUiThread(()->MainActivity.this.playMusic(query,provider));}
         @JavascriptInterface public void requestMic(){runOnUiThread(()->MainActivity.this.requestMic());}
         @JavascriptInterface public void startListening(String lang){runOnUiThread(()->begin(lang));}
@@ -131,5 +192,5 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
     @Override public void onEvent(int e,Bundle b){}
     @Override public void onRequestPermissionsResult(int r,String[] p,int[] g){super.onRequestPermissionsResult(r,p,g);if(r==MIC_REQ){permissionPending=false;if(g.length>0&&g[0]==PackageManager.PERMISSION_GRANTED)js("NativeVoice.onReady()");else error("صلاحية الميكروفون مرفوضة؛ فعّلها من إعدادات التطبيق",true);}}
     @Override protected void onPause(){js("NativeVoice.onPause()");stopMic();if(tts!=null)tts.stop();super.onPause();}
-    @Override protected void onDestroy(){destroyed=true;if(sr!=null)sr.destroy();if(tts!=null){tts.stop();tts.shutdown();}if(web!=null){web.removeJavascriptInterface("AndroidVoice");web.destroy();}super.onDestroy();}
+    @Override protected void onDestroy(){destroyed=true;if(library!=null)library.close();if(sr!=null)sr.destroy();if(tts!=null){tts.stop();tts.shutdown();}if(web!=null){web.removeJavascriptInterface("AndroidVoice");web.destroy();}super.onDestroy();}
 }

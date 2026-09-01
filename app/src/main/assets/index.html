@@ -35,7 +35,7 @@
       <label>عنوان البيت</label><input id="home" placeholder="مثال: البصرة، الجزائر" />
       <label>عنوان مكان العمل</label><input id="work" placeholder="مثال: اسم الشركة، الشارع، البصرة" />
       <p class="hint">احفظ العنوان ثم قل «وصلني للعمل» أو «وديني للدوام».</p>
-      <label>تطبيق الموسيقى</label><select id="music"><option value="youtube">YouTube</option><option value="youtube_music">YouTube Music</option><option value="auto">اختيار مشغّل من الهاتف</option><option value="spotify">Spotify</option></select><p class="hint">YouTube العادي مستقل عن YouTube Music. قد يتطلب اختيار الفيديو والضغط على تشغيل داخل YouTube.</p>
+      <label>تطبيق الموسيقى</label><select id="music"><option value="system_local">مشغّل الهاتف الافتراضي — ملفات الهاتف</option><option value="local">داخل Terrain Commander — ملفات الهاتف</option><option value="youtube">YouTube</option><option value="youtube_music">YouTube Music</option><option value="auto">اختيار مشغّل من الهاتف</option><option value="spotify">Spotify</option></select><p class="hint">YouTube العادي مستقل عن YouTube Music. قد يتطلب اختيار الفيديو والضغط على تشغيل داخل YouTube.</p>
       <label>لغة الاستماع</label><select id="lang"><option value="ar-IQ">العربية — العراق</option><option value="ar-SA">العربية</option><option value="en-US">English</option></select>
       <label><input id="voiceReply" type="checkbox" checked style="width:auto"> الرد الصوتي</label>
       <button id="saveBtn" style="width:100%;margin-top:9px">حفظ الإعدادات</button>
@@ -43,12 +43,22 @@
   </div>
 
   <section class="card" style="margin-top:12px"><h3>🧠 ما الذي يفهمه؟ <span class="pill">تنفيذ أوامر محددة</span></h3><p>الملاحة: «وصلني للبيت»، «وصلني للعمل»، «وديني للدوام»، «وديني لمطار البصرة»، «أقرب محطة وقود». الموسيقى: «شغل/ابحث عن أغنية …». الاتصال: «اتصل على 07…». واتساب: «واتساب 07…». البحث: «ابحث عن …». ويمكنك كتابة الأمر أيضًا:</p><div style="display:flex;gap:8px;margin-top:10px"><input id="textCmd" style="flex:1;background:#07121a;color:#fff;border:1px solid #29485a;border-radius:12px;padding:12px" placeholder="اكتب الأمر هنا"><button id="runText">تنفيذ</button></div></section>
+  <section class="card" style="margin-top:12px"><h3>🎵 أغاني الهاتف</h3>
+    <p class="hint">اختر مجلد أغانيك مرة واحدة. البحث الصوتي يعتمد على اسم الملف. اختر «مشغّل الهاتف الافتراضي» أو «داخل Terrain Commander» من الإعدادات.</p>
+    <div class="btns"><button id="pickMusic">اختيار مجلد الموسيقى</button><button id="refreshMusic" class="secondary">تحديث الملفات</button></div>
+    <p id="libraryStatus" class="hint" style="margin-top:10px">لم يتم اختيار مجلد بعد</p>
+    <input id="trackSearch" placeholder="ابحث باسم الملف" style="width:100%;margin-top:10px;background:#07121a;color:white;border:1px solid #29485a;border-radius:12px;padding:12px">
+    <div id="trackList" class="log"></div>
+    <p id="nowPlaying" style="margin-top:12px">المشغّل الداخلي متوقف</p>
+    <div class="btns"><button class="secondary" data-music-control="previous">⏮ السابق</button><button class="secondary" data-music-control="pause">⏸ مؤقت</button><button data-music-control="resume">▶ استكمال</button><button class="secondary" data-music-control="next">⏭ التالي</button><button class="secondary" data-music-control="stop">⏹ إنهاء</button></div>
+    <p class="hint">هذه الأزرار للمشغّل الداخلي. يستمر تشغيله مع إغلاق الشاشة. لإعطاء أمر صوتي جديد اضغط الميكروفون؛ تتوقف الموسيقى مؤقتًا حتى يسمعك بوضوح. عند الفتح بالمشغّل الافتراضي، تحكّم بالصوت من ذلك التطبيق.</p>
+  </section>
   <section class="card log"><h3>📜 سجل الأوامر</h3><div id="log"></div></section>
   <div class="foot">مهم: التطبيق لا تتحكم بوظائف السيارة الداخلية مثل المكيّف، القفل، النوافذ أو تشغيل المحرك. هذه تحتاج واجهة GM/OnStar أو تكاملًا أصليًا مصرحًا به. استخدم الأوامر الصوتية أثناء القيادة وتجنب لمس الهاتف.</div>
 </div>
 <script>
 const $=s=>document.querySelector(s); let recognition=null, deferredPrompt=null, listeningWanted=false, recognitionRunning=false, speaking=false, restartTimer=null;
-const cfg={home:localStorage.home||'',work:localStorage.work||'',music:localStorage.music||'youtube_music',lang:localStorage.lang||'ar-IQ',voiceReply:localStorage.voiceReply!=='false'};
+const cfg={home:localStorage.home||'',work:localStorage.work||'',music:localStorage.music||'system_local',lang:localStorage.lang||'ar-IQ',voiceReply:localStorage.voiceReply!=='false'};
 function load(){ $('#home').value=cfg.home;$('#work').value=cfg.work;$('#music').value=cfg.music;$('#lang').value=cfg.lang;$('#voiceReply').checked=cfg.voiceReply } load();
 function log(cmd,result){const d=document.createElement('div');d.className='row';d.innerHTML=`<b>${new Date().toLocaleTimeString('ar-IQ')}</b> — ${escapeHtml(cmd)}<br><span style="color:#8ca6b7">${escapeHtml(result)}</span>`;$('#log').prepend(d)}
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
@@ -72,14 +82,18 @@ function normalize(t){return t.replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨�
 function strip(t,words){let x=t; words.forEach(w=>x=x.replace(w,'')); return x.trim()}
 async function execute(raw){let t=normalize(raw); if(!t)return; $('#heard').textContent=raw;
  let result='';
- if(/وصلني.*البيت|وديني.*البيت|الى البيت|للبيت/.test(t)){if(!cfg.home){say('أدخل عنوان البيت من الإعدادات أولاً');result='عنوان البيت غير محفوظ'}else{say('حاضر، أفتح الطريق إلى البيت');result='فتح الملاحة إلى '+cfg.home;setTimeout(()=>openUrl(maps(cfg.home)),450)}}
+ if(/^(?:اوقف|وقف|ايقاف|توقف)(?: الاغنيه| الاغنية| الموسيقى| الاغاني)?$/.test(t)){controlMusic('pause');result='إيقاف الموسيقى مؤقتًا'}
+ else if(/^(?:كمل|كمل الاغنيه|كمل الاغنية|استكمل|استكمال|استكمال الموسيقى|تابع الاغنيه|تابع الاغنية)$/.test(t)){controlMusic('resume');result='استكمال الموسيقى'}
+ else if(/^(?:التالي|التاليه|التالية|الاغنيه التاليه|الاغنية التالية|شغل التاليه|شغل التالية)$/.test(t)){controlMusic('next');result='الأغنية التالية'}
+ else if(/^(?:السابق|السابقه|السابقة|الاغنيه السابقه|الاغنية السابقة)$/.test(t)){controlMusic('previous');result='الأغنية السابقة'}
+ else if(/وصلني.*البيت|وديني.*البيت|الى البيت|للبيت/.test(t)){if(!cfg.home){say('أدخل عنوان البيت من الإعدادات أولاً');result='عنوان البيت غير محفوظ'}else{say('حاضر، أفتح الطريق إلى البيت');result='فتح الملاحة إلى '+cfg.home;setTimeout(()=>openUrl(maps(cfg.home)),450)}}
  else if(/^(?:احفظ|حفظ)\s+(?:مكان\s+)?(?:العمل|عملي|الدوام)\s+/.test(t)){let address=raw.trim().replace(/^(?:احفظ|حفظ)\s+(?:مكان\s+)?(?:العمل|عملي|الدوام)\s+(?:في\s+)?/,'').trim();if(address){cfg.work=address;localStorage.work=address;$('#work').value=address;say('تم حفظ مكان العمل');result='حفظ عنوان العمل: '+address}else{say('أدخل عنوان العمل من الإعدادات');result='عنوان العمل فارغ'}}
  else if(/(?:وصلني|وديني|خذني|اذهب|روح|طريق|ملاحه|ملاحة).*(?:العمل|للعمل|الشغل|للشغل|الدوام|للدوام)|^(?:للعمل|للدوام|مكان العمل)$/.test(t)){if(!cfg.work){say('أدخل عنوان مكان العمل من الإعدادات أولاً ثم اضغط حفظ');result='عنوان العمل غير محفوظ'}else{say('حاضر، أفتح الطريق إلى العمل');result='فتح الملاحة إلى العمل: '+cfg.work;setTimeout(()=>openUrl(maps(cfg.work)),450)}}
  else if(/افتح.*خرائط|الخرائط/.test(t)){say('أفتح الخرائط');result='فتح Google Maps';setTimeout(()=>openUrl('https://maps.google.com'),350)}
  else if(/اقرب.*(محطه|محطة).*وقود|اقرب.*بنزين|محطة وقود/.test(t)){say('أبحث عن أقرب محطة وقود');result='بحث عن محطات الوقود';setTimeout(()=>openUrl(nearby('gas station')),350)}
  else if(/اقرب.*مطعم/.test(t)){say('أبحث عن أقرب مطعم');result='بحث عن المطاعم القريبة';setTimeout(()=>openUrl(nearby('restaurant')),350)}
  else if(/وديني|وصلني|خذني|روح بي|طريق الى|ملاحه الى|ملاحة الى/.test(t)){let q=strip(t,['وديني','وصلني','خذني','روح بي','طريق الى','ملاحه الى','ملاحة الى']);if(q){say('حاضر، أفتح الطريق');result='ملاحة إلى '+q;setTimeout(()=>openUrl(maps(q)),400)}else{say('قل لي المكان الذي تريد الذهاب إليه');result='بحاجة لوجهة'}}
- else if(/^(?:شغل|شغّل|شَغّل|اغنيه|اغنية|موسيقى|ابحث.*اغنيه|ابحث.*اغنية)/.test(t)){let query=raw.trim().replace(/^(?:ش[َ]?غ[ّ]?ل|ابحث\s+عن|ابحث)\s*/,'').replace(/^(?:أغني[ةه]|اغني[ةه]|موسيقى)\s*/,'').trim();const searchOnly=/^ابحث/.test(t);if(!query){say('قل شغل ثم اسم الأغنية والمغني');result='بحاجة لاسم أغنية'}else if(searchOnly){say('أفتح نتائج البحث');result='بحث موسيقى: '+query;setTimeout(()=>openUrl(cfg.music==='spotify'?'https://open.spotify.com/search/'+encodeURIComponent(query):cfg.music==='youtube'?'https://www.youtube.com/results?search_query='+encodeURIComponent(query):'https://music.youtube.com/search?q='+encodeURIComponent(query)),400)}else if(window.AndroidVoice){say('أرسل طلب تشغيل '+query);result='طلب تشغيل الأغنية: '+query;setTimeout(()=>AndroidVoice.playMusic(query,cfg.music),450)}else{say('التشغيل يحتاج تطبيق Android');result='التشغيل غير متاح في المتصفح'}}
+ else if(/^(?:شغل|شغّل|شَغّل|اغنيه|اغنية|موسيقى|ابحث.*اغنيه|ابحث.*اغنية)/.test(t)){let query=raw.trim().replace(/^(?:ش[َ]?غ[ّ]?ل|ابحث\s+عن|ابحث)\s*/,'').replace(/^(?:أغني[ةه]|اغني[ةه]|موسيقى)\s*/,'').trim();const searchOnly=/^ابحث/.test(t);if((cfg.music==='local'||cfg.music==='system_local')&&window.AndroidVoice){if(searchOnly){$('#trackSearch').value=query;renderLibrary();result='بحث في ملفات الهاتف: '+query}else{stopForMusic();AndroidVoice.playMusic(query,cfg.music);result='طلب تشغيل ملف محلي: '+(query||'أول أغنية')}}else if(!query){say('قل شغل ثم اسم الأغنية والمغني');result='بحاجة لاسم أغنية'}else if(searchOnly){say('أفتح نتائج البحث');result='بحث موسيقى: '+query;setTimeout(()=>openUrl(cfg.music==='spotify'?'https://open.spotify.com/search/'+encodeURIComponent(query):cfg.music==='youtube'?'https://www.youtube.com/results?search_query='+encodeURIComponent(query):'https://music.youtube.com/search?q='+encodeURIComponent(query)),400)}else if(window.AndroidVoice){say('أرسل طلب تشغيل '+query);result='طلب تشغيل الأغنية: '+query;setTimeout(()=>AndroidVoice.playMusic(query,cfg.music),450)}else{say('التشغيل يحتاج تطبيق Android');result='التشغيل غير متاح في المتصفح'}}
  else if(/اتصل|دق على/.test(t)){let n=(t.match(/(?:\+?964|0)?7\d{9}/)||[])[0];if(n){say('أفتح الاتصال');result='فتح الاتصال بالرقم';setTimeout(()=>openUrl('tel:'+n),300)}else{say('قل رقم الهاتف بعد كلمة اتصل');result='لم أجد رقم هاتف'}}
  else if(/واتساب|واتس اب/.test(t)){let n=(t.match(/(?:\+?964|0)?7\d{9}/)||[])[0];if(n){let intl=n.startsWith('0')?'964'+n.slice(1):n.replace('+','');say('أفتح واتساب');result='فتح WhatsApp';setTimeout(()=>openUrl('https://wa.me/'+intl),300)}else{say('قل رقم الهاتف بعد كلمة واتساب');result='لم أجد رقم هاتف'}}
  else if(/الوقت|كم الساعه|كم الساعة/.test(t)){let tm=new Date().toLocaleTimeString('ar-IQ',{hour:'2-digit',minute:'2-digit'});say('الوقت الآن '+tm);result='الوقت '+tm}
@@ -217,6 +231,7 @@ if (window.AndroidVoice) {
     },
     onNotice:function(msg){$('#micState').textContent=msg;},
     onSpeakDone:function(){speaking=false;scheduleRecognitionRestart(450);},
+    onLibrary:function(message){renderLibrary();$('#libraryStatus').textContent=message;},
     onPause:stopNative
   };
   $('#stopBtn').onclick=stopNative;
@@ -226,5 +241,39 @@ if (window.AndroidVoice) {
   $('#saveBtn').onclick=()=>{stopNative();saveSettings();};
   $('#micState').textContent='اسمح بالميكروفون عند بدء الاستماع. يعمل الاستماع أثناء فتح التطبيق.';
 }
+</script>
+<script>
+let phoneTracks=[];
+function stopForMusic(){
+  listeningWanted=false;clearTimeout(restartTimer);speaking=false;recognitionRunning=false;
+  if(window.AndroidVoice){AndroidVoice.stopListening();AndroidVoice.stopSpeaking();}
+  $('#orb').classList.remove('listening');$('#listenBtn').textContent='🎙️ بدء التفاعل الصوتي';
+}
+function controlMusic(action){stopForMusic();if(window.AndroidVoice)AndroidVoice.musicControl(action);}
+function renderLibrary(){
+  if(!window.AndroidVoice)return;
+  try{phoneTracks=JSON.parse(AndroidVoice.getLibrary());}catch(e){phoneTracks=[];}
+  const filter=normalize($('#trackSearch').value||'');const list=$('#trackList');list.innerHTML='';
+  let shown=0,matched=0;
+  phoneTracks.forEach((track,index)=>{
+    if(filter&&!normalize(track.title).includes(filter))return;matched++;
+    if(shown++>=100)return;
+    const row=document.createElement('div');row.className='row';
+    const name=document.createElement('div');name.textContent=track.title;row.appendChild(name);
+    const button=document.createElement('button');button.className='q';button.textContent=cfg.music==='system_local'?'فتح بالمشغّل الافتراضي':'تشغيل داخلي';
+    button.onclick=()=>{stopForMusic();AndroidVoice.playLocalTrack(index,cfg.music==='system_local'?'system_local':'local');};row.appendChild(button);list.appendChild(row);
+  });
+  $('#libraryStatus').textContent=phoneTracks.length+' ملف — '+matched+' مطابق'+(matched>100?'؛ اكتب اسم الأغنية لتقليل النتائج':'');
+}
+function updateMusicState(){
+  if(!window.AndroidVoice)return;
+  try{const data=JSON.parse(AndroidVoice.getMusicState());const labels={idle:'متوقف',loading:'جارٍ تجهيز الملف',playing:'يعمل الآن',paused:'متوقف مؤقتًا',ended:'انتهت القائمة',error:'تعذر التشغيل'};$('#nowPlaying').textContent=(labels[data.state]||'متوقف')+(data.title?' — '+data.title:'');}catch(e){}
+}
+$('#pickMusic').onclick=()=>{stopForMusic();if(window.AndroidVoice)AndroidVoice.chooseMusicFolder();};
+$('#refreshMusic').onclick=()=>{if(window.AndroidVoice)AndroidVoice.refreshMusic();};
+$('#trackSearch').addEventListener('input',renderLibrary);
+document.querySelectorAll('[data-music-control]').forEach(b=>b.onclick=()=>controlMusic(b.dataset.musicControl));
+$('#music').addEventListener('change',()=>{cfg.music=$('#music').value;localStorage.music=cfg.music;renderLibrary();});
+renderLibrary();updateMusicState();setInterval(updateMusicState,1000);
 </script>
 </body></html>
