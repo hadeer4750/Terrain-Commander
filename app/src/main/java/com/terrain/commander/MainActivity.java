@@ -80,12 +80,38 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
         intent.putExtra(SearchManager.QUERY,query);
         return intent;
     }
+    private void chooseInstalledPlayer(){
+        Map<String,String> choices=new LinkedHashMap<>();
+        PackageManager pm=getPackageManager();
+        Intent files=new Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse("content://com.terrain.commander/sample.mp3"),"audio/mpeg");
+        for(android.content.pm.ResolveInfo r:pm.queryIntentActivities(files,PackageManager.MATCH_DEFAULT_ONLY)){
+            if(r.activityInfo.exported&&!getPackageName().equals(r.activityInfo.packageName))choices.put("fileapp:"+r.activityInfo.packageName,r.loadLabel(pm)+" — ملفات الهاتف");
+        }
+        for(android.content.pm.ResolveInfo r:pm.queryIntentActivities(musicIntent(""),PackageManager.MATCH_DEFAULT_ONLY)){
+            if(r.activityInfo.exported&&!getPackageName().equals(r.activityInfo.packageName))choices.put("searchapp:"+r.activityInfo.packageName,r.loadLabel(pm)+" — تشغيل بالبحث");
+        }
+        try{android.content.pm.ApplicationInfo app=pm.getApplicationInfo("org.schabi.newpipe",0);
+            if(app.enabled)choices.put("newpipe",pm.getApplicationLabel(app)+" — بحث داخل التطبيق");
+        }catch(PackageManager.NameNotFoundException ignored){}
+        if(choices.isEmpty()){js("NativeVoice.onNotice('لم أجد مشغّلاً متوافقًا مثبتًا على الهاتف')");return;}
+        String[] ids=choices.keySet().toArray(new String[0]), labels=choices.values().toArray(new String[0]);
+        new AlertDialog.Builder(this).setTitle("اختر تطبيق الموسيقى").setItems(labels,(d,index)->js("NativeVoice.onPlayerSelected("+q(ids[index])+","+q(labels[index])+")")).setNegativeButton("إلغاء",null).show();
+    }
+    private void openNewPipe(String query){
+        Intent intent=getPackageManager().getLaunchIntentForPackage("org.schabi.newpipe");
+        if(intent==null){js("NativeVoice.onNotice('NewPipe غير مثبت أو غير متاح؛ اختر مشغّلاً آخر')");return;}
+        intent.putExtra("key_service_id",0).putExtra("key_open_search",true).putExtra("key_search_string",query==null?"":query);
+        stopMic();if(tts!=null)tts.stop();
+        try{startActivity(intent);}catch(ActivityNotFoundException|SecurityException e){js("NativeVoice.onNotice('تعذر فتح NewPipe؛ اختر مشغّلاً آخر')");}
+    }
     private void playMusic(String query,String provider){
-        if("local".equals(provider)||"system_local".equals(provider)){playLocalQuery(query,provider);return;}
+        if("local".equals(provider)||"system_local".equals(provider)||provider.startsWith("fileapp:")){playLocalQuery(query,provider);return;}
+        if("newpipe".equals(provider)){openNewPipe(query);return;}
         if(query==null||query.trim().isEmpty())return;
         stopMic();
         Intent intent=musicIntent(query.trim());
-        if("spotify".equals(provider))intent.setPackage("com.spotify.music");
+        if(provider.startsWith("searchapp:"))intent.setPackage(provider.substring(10));
+        else if("spotify".equals(provider))intent.setPackage("com.spotify.music");
         else if("youtube_music".equals(provider))intent.setPackage("com.google.android.apps.youtube.music");
         else if("youtube".equals(provider))intent.setPackage("com.google.android.youtube");
         try{startActivity(intent);}
@@ -133,10 +159,11 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
         JSONArray items=library.tracks();if(index<0||index>=items.length())return;
         JSONObject track=items.optJSONObject(index);if(track==null)return;
         stopMic();if(tts!=null)tts.stop();js("NativeVoice.onPause()");
-        if("system_local".equals(provider)){
+        if("system_local".equals(provider)||provider.startsWith("fileapp:")){
             if(MusicService.running)startService(new Intent(this,MusicService.class).setAction("pause"));
             Uri uri=Uri.parse(track.optString("uri"));
             Intent open=new Intent(Intent.ACTION_VIEW).setDataAndType(uri,track.optString("mime","audio/*"));
+            if(provider.startsWith("fileapp:"))open.setPackage(provider.substring(8));
             open.setClipData(ClipData.newRawUri("أغنية",uri));open.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
             try{startActivity(open);}catch(ActivityNotFoundException|SecurityException e){js("NativeVoice.onLibrary('لا يوجد مشغّل يقبل الملف. اختر المشغّل الداخلي من الإعدادات')");}
         }else{
@@ -150,6 +177,7 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
         else js("NativeVoice.onLibrary('أزرار التحكم تخص المشغّل الداخلي؛ افتح أغنية داخله أولاً')");
     }
     public class Bridge {
+        @JavascriptInterface public void chooseInstalledPlayer(){runOnUiThread(()->MainActivity.this.chooseInstalledPlayer());}
         @JavascriptInterface public void chooseMusicFolder(){runOnUiThread(()->MainActivity.this.chooseMusicFolder());}
         @JavascriptInterface public void refreshMusic(){runOnUiThread(()->library.refresh());}
         @JavascriptInterface public String getLibrary(){return library.json();}

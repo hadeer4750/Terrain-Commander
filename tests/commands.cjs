@@ -48,3 +48,14 @@ console.log('PASS: تشغيل موسيقى variants, live player selection witho
 vm.runInContext("execute('افتح واتساب 07712345678')",context);timers.splice(0).forEach(fn=>fn());assert.equal(urls.pop(),'https://wa.me/9647712345678');
 vm.runInContext("execute('البحث عن أغنية يا طيور')",context);timers.splice(0).forEach(fn=>fn());assert.equal(urls.length,0);assert.equal(nodes['#trackSearch'].value,'يا طيور');
 console.log('PASS: open WhatsApp remains a messaging command; البحث عن أغنية stays local');
+for(const id of ['newpipe','fileapp:org.videolan.vlc','searchapp:com.example.player']){
+ context.NativeVoice.onPlayerSelected(id,'Test Player');
+ assert.equal(context.localStorage.music,id);
+ vm.runInContext("execute('شغل أغنية يا طيور')",context);timers.splice(0).forEach(fn=>fn());
+ assert.deepEqual(played.pop(),['يا طيور',id]);assert.equal(urls.length,0);
+ vm.runInContext("execute('ابحث عن أغنية يا طيور')",context);timers.splice(0).forEach(fn=>fn());
+ if(!id.startsWith('fileapp:'))assert.deepEqual(played.pop(),['يا طيور',id]);
+ assert.equal(urls.length,0);
+ vm.runInContext('load()',context);assert.equal(nodes['#music'].value,id);
+}
+console.log('PASS: installed player selection persists and routes music/search without browser fallback');

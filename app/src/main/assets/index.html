@@ -15,7 +15,7 @@
 </head>
 <body>
 <div class="wrap">
-  <div class="top"><div class="brand"><h1>🚙 Terrain Commander</h1><p>مساعد صوتي للسيارة — Android / Bluetooth — 2.4</p></div><div class="badge" id="netBadge">● متصل</div></div>
+  <div class="top"><div class="brand"><h1>🚙 Terrain Commander</h1><p>مساعد صوتي للسيارة — Android / Bluetooth — 2.5</p></div><div class="badge" id="netBadge">● متصل</div></div>
   <section class="hero">
     <div id="orb" class="orb"><div class="mic">🎙️</div></div>
     <div id="status" class="status">اضغط وقل أمرك</div>
@@ -36,6 +36,7 @@
       <label>عنوان مكان العمل</label><input id="work" placeholder="مثال: اسم الشركة، الشارع، البصرة" />
       <p class="hint">احفظ العنوان ثم قل «وصلني للعمل» أو «وديني للدوام».</p>
       <label>تطبيق الموسيقى — يُحفظ الاختيار فورًا</label><select id="music"><option value="system_local">مشغّل الهاتف الافتراضي — ملفات الهاتف</option><option value="local">داخل Terrain Commander — ملفات الهاتف</option><option value="youtube">YouTube</option><option value="youtube_music">YouTube Music</option><option value="auto">مشغّل خارجي يدعم البحث</option><option value="spotify">Spotify</option></select><p class="hint">YouTube العادي مستقل عن YouTube Music. قد يتطلب اختيار الفيديو والضغط على تشغيل داخل YouTube.</p>
+      <button id="pickPlayer" class="secondary" style="width:100%;margin-top:9px">اختيار من تطبيقات الهاتف</button><p class="hint">تظهر المشغّلات المتوافقة المثبّتة. NewPipe يفتح نتائج البحث داخله لتختار الأغنية؛ لا يضمن التشغيل التلقائي.</p>
       <label>لغة الاستماع</label><select id="lang"><option value="ar-IQ">العربية — العراق</option><option value="ar-SA">العربية</option><option value="en-US">English</option></select>
       <label><input id="voiceReply" type="checkbox" checked style="width:auto"> الرد الصوتي</label>
       <button id="saveBtn" style="width:100%;margin-top:9px">حفظ الإعدادات</button>
@@ -59,6 +60,11 @@
 <script>
 const $=s=>document.querySelector(s); let recognition=null, deferredPrompt=null, listeningWanted=false, recognitionRunning=false, speaking=false, restartTimer=null;
 const cfg={home:localStorage.home||'',work:localStorage.work||'',music:localStorage.music||'system_local',lang:localStorage.lang||'ar-IQ',voiceReply:localStorage.voiceReply!=='false'};
+function restorePlayer(){
+ const id=localStorage.music;
+ if(id==='newpipe'||/^(?:fileapp|searchapp):[A-Za-z0-9_.]+$/.test(id||'')){const option=document.createElement('option');option.value=id;option.textContent=localStorage.musicLabel||id;$('#music').appendChild(option);}
+}
+restorePlayer();
 function load(){ $('#home').value=cfg.home;$('#work').value=cfg.work;$('#music').value=cfg.music;$('#lang').value=cfg.lang;$('#voiceReply').checked=cfg.voiceReply } load();
 function log(cmd,result){const d=document.createElement('div');d.className='row';d.innerHTML=`<b>${new Date().toLocaleTimeString('ar-IQ')}</b> — ${escapeHtml(cmd)}<br><span style="color:#8ca6b7">${escapeHtml(result)}</span>`;$('#log').prepend(d)}
 function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]))}
@@ -82,8 +88,9 @@ function normalize(t){return t.replace(/[٠-٩]/g,c=>String('٠١٢٣٤٥٦٧٨�
 function strip(t,words){let x=t; words.forEach(w=>x=x.replace(w,'')); return x.trim()}
 function selectedMusicProvider(){
  const allowed=['local','system_local','youtube','youtube_music','spotify','auto'];
+ const valid=p=>allowed.includes(p)||p==='newpipe'||/^(?:fileapp|searchapp):[A-Za-z0-9_.]+$/.test(p||'');
  const visible=$('#music').value;
- const provider=allowed.includes(visible)?visible:allowed.includes(cfg.music)?cfg.music:'system_local';
+ const provider=valid(visible)?visible:valid(cfg.music)?cfg.music:'system_local';
  cfg.music=provider;localStorage.music=provider;return provider;
 }
 function parseMusicCommand(raw){
@@ -104,10 +111,14 @@ function parseMusicCommand(raw){
 }
 function routeMusic(request){
  const provider=selectedMusicProvider(),query=request.query;
- if(provider==='local'||provider==='system_local'){
+ if(provider==='local'||provider==='system_local'||provider.startsWith('fileapp:')){
    if(!window.AndroidVoice){say('افتح نسخة Android لتشغيل ملفات الهاتف');return 'المشغّل المحلي غير متاح هنا';}
    if(request.searchOnly){$('#trackSearch').value=query;renderLibrary();return 'بحث في ملفات الهاتف: '+query;}
    stopForMusic();AndroidVoice.playMusic(query,provider);return 'طلب تشغيل ملف محلي: '+(query||'أول أغنية');
+ }
+ if(provider==='newpipe'||provider.startsWith('searchapp:')){
+   if(window.AndroidVoice){stopForMusic();AndroidVoice.playMusic(query,provider);return provider==='newpipe'?'فتح البحث داخل NewPipe':'إرسال الطلب للمشغّل المختار';}
+   say('افتح نسخة Android لاستخدام المشغّل');return 'يتطلب Android';
  }
  if(!query){say('قل شغل ثم اسم الأغنية والمغني');return 'بحاجة لاسم أغنية';}
  if(request.searchOnly){
@@ -269,6 +280,7 @@ if (window.AndroidVoice) {
     },
     onNotice:function(msg){$('#micState').textContent=msg;},
     onSpeakDone:function(){speaking=false;scheduleRecognitionRestart(450);},
+    onPlayerSelected:function(id,label){localStorage.music=id;localStorage.musicLabel=label;cfg.music=id;restorePlayer();$('#music').value=id;renderLibrary();$('#status').textContent='تم اختيار '+label;},
     onLibrary:function(message){renderLibrary();$('#libraryStatus').textContent=message;},
     onPause:stopNative
   };
@@ -298,8 +310,8 @@ function renderLibrary(){
     if(shown++>=100)return;
     const row=document.createElement('div');row.className='row';
     const name=document.createElement('div');name.textContent=track.title;row.appendChild(name);
-    const button=document.createElement('button');button.className='q';button.textContent=cfg.music==='system_local'?'فتح بالمشغّل الافتراضي':'تشغيل داخلي';
-    button.onclick=()=>{stopForMusic();AndroidVoice.playLocalTrack(index,cfg.music==='system_local'?'system_local':'local');};row.appendChild(button);list.appendChild(row);
+    const button=document.createElement('button');button.className='q';button.textContent=(cfg.music==='system_local'||cfg.music.startsWith('fileapp:'))?'فتح بالمشغّل المختار':'تشغيل داخلي';
+    button.onclick=()=>{stopForMusic();AndroidVoice.playLocalTrack(index,(cfg.music==='system_local'||cfg.music.startsWith('fileapp:'))?cfg.music:'local');};row.appendChild(button);list.appendChild(row);
   });
   $('#libraryStatus').textContent=phoneTracks.length+' ملف — '+matched+' مطابق'+(matched>100?'؛ اكتب اسم الأغنية لتقليل النتائج':'');
 }
@@ -311,6 +323,7 @@ $('#pickMusic').onclick=()=>{stopForMusic();if(window.AndroidVoice)AndroidVoice.
 $('#refreshMusic').onclick=()=>{if(window.AndroidVoice)AndroidVoice.refreshMusic();};
 $('#trackSearch').addEventListener('input',renderLibrary);
 document.querySelectorAll('[data-music-control]').forEach(b=>b.onclick=()=>controlMusic(b.dataset.musicControl));
+$('#pickPlayer').onclick=()=>{if(window.AndroidVoice&&AndroidVoice.chooseInstalledPlayer)AndroidVoice.chooseInstalledPlayer();};
 $('#music').addEventListener('change',()=>{cfg.music=$('#music').value;localStorage.music=cfg.music;renderLibrary();});
 renderLibrary();updateMusicState();setInterval(updateMusicState,1000);
 </script>

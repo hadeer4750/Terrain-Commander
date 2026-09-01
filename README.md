@@ -45,3 +45,6 @@ gradle :app:assembleDebug :app:lintDebug
 
 ## إصلاح 2.4
 إصلاح «تشغيل موسيقى» و«شغل الموسيقى» وصيغ الطلب العربية، واعتماد المشغّل الظاهر في القائمة وقت التنفيذ. لم تعد الأوامر غير المفهومة تُفتح تلقائيًا في بحث ويب؛ يتطلب بحث الويب طلبًا صريحًا. أيقونة GMC حمراء بخلفية داكنة؛ التطبيق غير تابع لشركة GMC.
+
+### 2.5 — Installed music players
+The settings button lists installed handlers for local audio files and media playback searches, plus official NewPipe when installed. Selection is saved immediately. File players receive a content URI with a temporary read grant; search players receive MEDIA_PLAY_FROM_SEARCH restricted to the selected package. NewPipe opens its YouTube search screen using its MainActivity search extras; selecting a result and starting playback remains a user action. No automatic browser fallback is used for these selected apps. NewPipe integration uses its current open-source activity contract and may need adjustment in future versions.
