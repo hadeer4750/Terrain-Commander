@@ -1,5 +1,14 @@
 plugins { id 'com.android.application' }
 
-android { namespace 'com.terrain.commander'; compileSdk 35
+android {
+    signingConfigs {
+        debug {
+            storeFile file("${System.getProperty('user.home')}/.android/debug.keystore")
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+    namespace 'com.terrain.commander'; compileSdk 35
     defaultConfig { applicationId 'com.terrain.commander'; minSdk 26; targetSdk 35; versionCode 4; versionName '2.2' }
 }

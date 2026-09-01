@@ -23,6 +23,12 @@ jobs:
         with:
           path: ~/.android/debug.keystore
           key: terrain-debug-signing-v1
+      - name: Prepare stable test signing key
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -keystore "$HOME/.android/debug.keystore" -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
       - name: Test voice command routing
         run: node tests/commands.cjs
       - name: Build and lint
