@@ -44,3 +44,7 @@ for(const provider of ['local','system_local']){
 vm.runInContext("execute('طلب صوتي غير مفهوم')",context);timers.splice(0).forEach(fn=>fn());assert.equal(urls.length,0);
 vm.runInContext("execute('ابحث عن الطقس في البصرة')",context);timers.splice(0).forEach(fn=>fn());assert.match(urls.pop(),/^https:\/\/www.google.com\/search/);
 console.log('PASS: تشغيل موسيقى variants, live player selection without save, unknown command cannot open web, explicit web search retained');
+
+vm.runInContext("execute('افتح واتساب 07712345678')",context);timers.splice(0).forEach(fn=>fn());assert.equal(urls.pop(),'https://wa.me/9647712345678');
+vm.runInContext("execute('البحث عن أغنية يا طيور')",context);timers.splice(0).forEach(fn=>fn());assert.equal(urls.length,0);assert.equal(nodes['#trackSearch'].value,'يا طيور');
+console.log('PASS: open WhatsApp remains a messaging command; البحث عن أغنية stays local');

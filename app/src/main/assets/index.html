@@ -91,13 +91,14 @@ function parseMusicCommand(raw){
  let n=normalize(clean);
  const polite=n.match(/^(?:(?:لو سمحت|من فضلك|رجاء|ممكن|اريد منك|اريد ان|اريدك ان|اريدك|اريد)\s+)+/);
  if(polite){clean=clean.slice(polite[0].length);n=normalize(clean);}
- const search=n.match(/^(?:ابحث|بحث|دور)(?:\s+لي)?(?:\s+عن)?\s+/);
+ const search=n.match(/^(?:البحث|ابحث|بحث|دور)(?:\s+لي)?(?:\s+عن)?\s+/);
  const play=n.match(/^(?:قم\s+ب)?(?:تشغيل|تشغللي|تشغل|شغللي|شغلي|شغل|اشغل|اسمعني|سمعني|play|افتح)(?:\s+|$)/);
  const action=search||play;
  if(action){clean=clean.slice(action[0].length).replace(/^لي\s+/,'');n=normalize(clean);}
  const noun=n.match(/^(?:ال)?(?:اغني[ةه]|اغاني|موسيقى|موسيقي|موسيقا|ميوزك|music|songs?)(?:\s+|$)/);
  if(noun)clean=clean.slice(noun[0].length).trim();
  if(search&&!noun)return null;
+ if(play&&play[0].trim()==='افتح'&&!noun)return null;
  if(!play&&!noun)return null;
  return {query:clean.trim(),searchOnly:!!search};
 }
