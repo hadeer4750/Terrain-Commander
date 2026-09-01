@@ -18,6 +18,13 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.10.2'
+      - name: Restore test signing key
+        uses: actions/cache@v4
+        with:
+          path: ~/.android/debug.keystore
+          key: terrain-debug-signing-v1
+      - name: Test voice command routing
+        run: node tests/commands.cjs
       - name: Build and lint
         run: gradle --no-daemon :app:assembleDebug :app:lintDebug
       - name: Verify APK signature and package
@@ -25,14 +32,14 @@ jobs:
           APK=app/build/outputs/apk/debug/app-debug.apk
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK"
-          cp "$APK" Terrain-Commander-2.0.apk
-          sha256sum Terrain-Commander-2.0.apk > Terrain-Commander-2.0.apk.sha256
+          cp "$APK" Terrain-Commander-2.1.apk
+          sha256sum Terrain-Commander-2.1.apk > Terrain-Commander-2.1.apk.sha256
       - uses: actions/upload-artifact@v4
         with:
           name: Terrain-Commander-APK
           path: |
-            Terrain-Commander-2.0.apk
-            Terrain-Commander-2.0.apk.sha256
+            Terrain-Commander-2.1.apk
+            Terrain-Commander-2.1.apk.sha256
           if-no-files-found: error
       - uses: actions/upload-artifact@v4
         if: always()

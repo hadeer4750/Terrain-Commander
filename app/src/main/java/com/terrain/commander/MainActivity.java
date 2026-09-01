@@ -2,6 +2,9 @@ package com.terrain.commander;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.app.SearchManager;
+import android.provider.MediaStore;
 import android.os.Bundle;
 import android.content.*;
 import android.content.pm.PackageManager;
@@ -65,7 +68,33 @@ public class MainActivity extends Activity implements RecognitionListener, TextT
         try{startActivity(new Intent("tel".equals(scheme)?Intent.ACTION_DIAL:Intent.ACTION_VIEW,uri));}
         catch(ActivityNotFoundException e){js("NativeVoice.onNotice('لا يوجد تطبيق مناسب لتنفيذ الأمر')");}
     }
+    private Intent musicIntent(String query){
+        Intent intent=new Intent(MediaStore.INTENT_ACTION_MEDIA_PLAY_FROM_SEARCH);
+        intent.putExtra(MediaStore.EXTRA_MEDIA_FOCUS,"vnd.android.cursor.item/audio");
+        intent.putExtra(SearchManager.QUERY,query);
+        return intent;
+    }
+    private void playMusic(String query,String provider){
+        if(query==null||query.trim().isEmpty())return;
+        stopMic();
+        Intent intent=musicIntent(query.trim());
+        if("spotify".equals(provider))intent.setPackage("com.spotify.music");
+        else if("youtube_music".equals(provider)||"youtube".equals(provider))intent.setPackage("com.google.android.apps.youtube.music");
+        try{startActivity(intent);}
+        catch(ActivityNotFoundException|SecurityException e){
+            new AlertDialog.Builder(this).setTitle("التشغيل المباشر غير متاح")
+                .setMessage("المشغّل المختار غير مثبت أو لا يستقبل طلب تشغيل الأغنية. اختر مشغّلاً آخر يدعم التشغيل بالبحث، أو افتح البحث اليدوي.")
+                .setPositiveButton("مشغّل آخر",(dialog,which)->{
+                    Intent other=musicIntent(query);
+                    if(other.resolveActivity(getPackageManager())!=null)startActivity(Intent.createChooser(other,"تشغيل الأغنية بواسطة"));
+                    else js("NativeVoice.onNotice('لا يوجد مشغّل يدعم التشغيل بالبحث على الهاتف')");
+                })
+                .setNeutralButton("بحث يدوي",(dialog,which)->openExternal("spotify".equals(provider)?"https://open.spotify.com/search/"+Uri.encode(query):"https://music.youtube.com/search?q="+Uri.encode(query)))
+                .setNegativeButton("إلغاء",null).show();
+        }
+    }
     public class Bridge {
+        @JavascriptInterface public void playMusic(String query,String provider){runOnUiThread(()->MainActivity.this.playMusic(query,provider));}
         @JavascriptInterface public void requestMic(){runOnUiThread(()->MainActivity.this.requestMic());}
         @JavascriptInterface public void startListening(String lang){runOnUiThread(()->begin(lang));}
         @JavascriptInterface public void stopListening(){runOnUiThread(()->stopMic());}
