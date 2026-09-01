@@ -12,7 +12,7 @@
       <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="https"/></intent>
       <intent><action android:name="android.intent.action.VIEW"/><data android:scheme="geo"/></intent>
     </queries>
-    <application android:theme="@style/AppTheme" android:label="Terrain Commander" android:usesCleartextTraffic="false">
+    <application android:icon="@mipmap/ic_launcher" android:roundIcon="@mipmap/ic_launcher" android:theme="@style/AppTheme" android:label="Terrain Commander" android:usesCleartextTraffic="false">
       <service android:name=".MusicService" android:exported="false" android:foregroundServiceType="mediaPlayback"/>
       <activity android:name=".MainActivity" android:launchMode="singleTop" android:screenOrientation="portrait" android:exported="true">
         <intent-filter>

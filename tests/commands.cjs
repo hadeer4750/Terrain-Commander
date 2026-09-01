@@ -25,8 +25,22 @@ vm.runInContext("execute('ابحث عن أغنية يا طيور')",context);tim
 const reloaded={...context,window:null};reloaded.window=reloaded;vm.createContext(reloaded);vm.runInContext([...fs.readFileSync(require('node:path').join(__dirname,'../app/src/main/assets/index.html'),'utf8').matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m=>m[1]).join('\n'),reloaded);assert.equal(vm.runInContext('cfg.music',reloaded),'youtube');
 console.log('PASS: YouTube selection, playback dispatch, search URL, persistence across reload');
 
-vm.runInContext("cfg.music='local';execute('شغل أغنية يا طيور')",context);assert.deepEqual(played.pop(),['يا طيور','local']);assert.equal(urls.length,0);
-vm.runInContext("cfg.music='system_local';execute('شغل موسيقى')",context);assert.deepEqual(played.pop(),['','system_local']);
+vm.runInContext("cfg.music='local';$('#music').value='local';execute('شغل أغنية يا طيور')",context);assert.deepEqual(played.pop(),['يا طيور','local']);assert.equal(urls.length,0);
+vm.runInContext("cfg.music='system_local';$('#music').value='system_local';execute('شغل موسيقى')",context);assert.deepEqual(played.pop(),['','system_local']);
 vm.runInContext("execute('وقف الموسيقى');execute('كمل');execute('التالي');execute('السابق')",context);assert.deepEqual(controls,['pause','resume','next','previous']);
 vm.runInContext("execute('ابحث عن أغنية يا طيور')",context);assert.equal(nodes['#trackSearch'].value,'يا طيور');assert.equal(urls.length,0);
 console.log('PASS: internal/default file playback, generic play, local search, transport commands');
+
+vm.runInContext("cfg.music='local';$('#music').value='local';execute('تشغيل موسيقى')",context);timers.splice(0).forEach(fn=>fn());assert.equal(urls.length,0,'Music request must never fall through to web search');assert.deepEqual(played.pop(),['','local']);
+
+for(const provider of ['local','system_local']){
+  nodes['#music'].value=provider; // No save button or change event: use visible selection.
+  for(const phrase of ['تشغيل الموسيقى','شغل الموسيقى','أريد تشغيل موسيقى','ممكن تشغل موسيقى','شغّل لي أغنية يا طيور','ممكن تشغيل موسيقى','لو سمحت تشغيل أغنية يا طيور','شغلي أغنية يا طيور','الموسيقى']){
+    const before=played.length;vm.runInContext('execute('+JSON.stringify(phrase)+')',context);timers.splice(0).forEach(fn=>fn());
+    assert.equal(urls.length,0,phrase+' unexpectedly opened the web');
+    const expected=phrase.includes('طيور')?'يا طيور':'';assert.deepEqual(played.pop(),[expected,provider],phrase);
+  }
+}
+vm.runInContext("execute('طلب صوتي غير مفهوم')",context);timers.splice(0).forEach(fn=>fn());assert.equal(urls.length,0);
+vm.runInContext("execute('ابحث عن الطقس في البصرة')",context);timers.splice(0).forEach(fn=>fn());assert.match(urls.pop(),/^https:\/\/www.google.com\/search/);
+console.log('PASS: تشغيل موسيقى variants, live player selection without save, unknown command cannot open web, explicit web search retained');
