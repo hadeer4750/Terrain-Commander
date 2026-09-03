@@ -41,6 +41,7 @@ public class MainActivity extends android.app.Activity {
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private String detectedMime = null;
     private String detectedExt = "";
+    private String detectedFileName = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,10 +129,11 @@ public class MainActivity extends android.app.Activity {
             return;
         }
 
-        statusText.setText("جارٍ تحليل الفيديو...\nأتحقق من النوع والحجم والدقة.");
+        statusText.setText("جارٍ تحليل الفيديو...\nأتحقق من النوع والحجم والدقة والامتداد الحقيقي.");
         previewCard.setVisibility(View.GONE);
         detectedMime = null;
         detectedExt = "";
+        detectedFileName = "";
 
         executor.execute(() -> {
             String fileName = guessFileName(url);
@@ -150,54 +152,63 @@ public class MainActivity extends android.app.Activity {
                 conn.setRequestMethod("HEAD");
                 conn.setConnectTimeout(12000);
                 conn.setReadTimeout(12000);
-                conn.setRequestProperty("User-Agent", "LinkSave/2.0 Android");
+                conn.setRequestProperty("User-Agent", "LinkSave/2.1 Android");
                 conn.connect();
-                mime = conn.getContentType();
+                mime = normalizeMime(conn.getContentType());
                 length = conn.getContentLengthLong();
                 String disposition = conn.getHeaderField("Content-Disposition");
-                if ((ext.isEmpty() || fileName.endsWith(".bin")) && disposition != null) {
+                if (disposition != null) {
                     String parsed = fileNameFromDisposition(disposition);
                     if (parsed != null) {
                         fileName = parsed;
                         ext = extensionOf(fileName).toLowerCase(Locale.ROOT);
                     }
                 }
-                if (mime != null && mime.contains(";")) mime = mime.substring(0, mime.indexOf(';')).trim();
-                if (ext.isEmpty() && mime != null) {
-                    String guessed = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime);
-                    if (guessed != null) ext = guessed;
-                }
             } catch (Exception ignored) {
             } finally {
                 if (conn != null) conn.disconnect();
             }
 
-            boolean looksVideo = isVideo(ext) || (mime != null && mime.toLowerCase(Locale.ROOT).startsWith("video/"));
+            String mimeExt = extensionFromMime(mime);
+            if (mime != null && mime.toLowerCase(Locale.ROOT).startsWith("video/") && !mimeExt.isEmpty()) {
+                ext = mimeExt;
+                fileName = replaceExtension(fileName, ext);
+            }
+
+            boolean metadataSaysVideo = false;
+            MediaMetadataRetriever mmr = new MediaMetadataRetriever();
+            try {
+                Map<String, String> headers = new HashMap<>();
+                headers.put("User-Agent", "LinkSave/2.1 Android");
+                mmr.setDataSource(url, headers);
+                String w = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
+                String h = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
+                String d = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
+                if (w != null) width = Integer.parseInt(w);
+                if (h != null) height = Integer.parseInt(h);
+                if (d != null) durationMs = Long.parseLong(d);
+                metadataSaysVideo = width > 0 && height > 0;
+            } catch (Exception ignored) {
+            } finally {
+                try { mmr.release(); } catch (Exception ignored) {}
+            }
+
+            boolean looksVideo = isVideo(ext) || (mime != null && mime.toLowerCase(Locale.ROOT).startsWith("video/")) || metadataSaysVideo;
             if (looksVideo) {
-                MediaMetadataRetriever mmr = new MediaMetadataRetriever();
-                try {
-                    Map<String, String> headers = new HashMap<>();
-                    headers.put("User-Agent", "LinkSave/2.0 Android");
-                    mmr.setDataSource(url, headers);
-                    String w = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH);
-                    String h = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT);
-                    String d = mmr.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION);
-                    if (w != null) width = Integer.parseInt(w);
-                    if (h != null) height = Integer.parseInt(h);
-                    if (d != null) durationMs = Long.parseLong(d);
-                } catch (Exception ignored) {
-                } finally {
-                    try {
-                        mmr.release();
-                    } catch (Exception ignored) {
-                    }
+                if (!isVideo(ext)) {
+                    ext = !mimeExt.isEmpty() ? mimeExt : "mp4";
+                    fileName = replaceExtension(fileName, ext);
+                }
+                if (mime == null || !mime.toLowerCase(Locale.ROOT).startsWith("video/")) {
+                    String guessedMime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
+                    if (guessedMime != null) mime = guessedMime;
                 }
             } else {
                 error = "الرابط لا يبدو أنه ملف فيديو مباشر.";
             }
 
-            final String fName = fileName;
-            final String fExt = ext.isEmpty() ? extensionFromMime(mime) : ext;
+            final String fName = sanitizeFileName(fileName);
+            final String fExt = ext;
             final String fMime = mime;
             final long fLength = length;
             final int fWidth = width;
@@ -208,10 +219,11 @@ public class MainActivity extends android.app.Activity {
             runOnUiThread(() -> {
                 detectedMime = fMime;
                 detectedExt = fExt;
+                detectedFileName = fName;
                 StringBuilder info = new StringBuilder();
                 if (fError != null) info.append(fError).append("\n");
                 info.append("الاسم: ").append(fName).append("\n");
-                info.append("الامتداد: ").append(fExt.isEmpty() ? "غير معروف" : fExt.toUpperCase(Locale.ROOT)).append("\n");
+                info.append("الامتداد الحقيقي: ").append(fExt.isEmpty() ? "غير معروف" : fExt.toUpperCase(Locale.ROOT)).append("\n");
                 info.append("النوع: ").append(fMime == null ? "غير معروف" : fMime).append("\n");
                 if (fWidth > 0 && fHeight > 0) {
                     info.append("الجودة: ").append(qualityLabel(fWidth, fHeight)).append(" (").append(fWidth).append("×").append(fHeight).append(")\n");
@@ -251,15 +263,22 @@ public class MainActivity extends android.app.Activity {
             return;
         }
         try {
-            String fileName = guessFileName(url);
-            String ext = extensionOf(fileName);
-            if ((ext.isEmpty() || fileName.endsWith(".bin")) && !detectedExt.isEmpty()) {
-                fileName = "linksave_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + "." + detectedExt;
-                ext = detectedExt;
+            String fileName = detectedFileName;
+            String ext = detectedExt;
+
+            if (fileName == null || fileName.isEmpty()) fileName = guessFileName(url);
+            if (ext == null || ext.isEmpty()) ext = extensionOf(fileName).toLowerCase(Locale.ROOT);
+
+            if (!isVideo(ext) && detectedMime != null && detectedMime.toLowerCase(Locale.ROOT).startsWith("video/")) {
+                String fromMime = extensionFromMime(detectedMime);
+                ext = fromMime.isEmpty() ? "mp4" : fromMime;
             }
+            if (isVideo(ext)) fileName = replaceExtension(fileName, ext);
+            fileName = sanitizeFileName(fileName);
+
             String mime = detectedMime;
             if (mime == null && !ext.isEmpty()) {
-                mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext.toLowerCase(Locale.ROOT));
+                mime = MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext);
             }
 
             DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url));
@@ -268,33 +287,40 @@ public class MainActivity extends android.app.Activity {
             request.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
             request.setAllowedOverMetered(true);
             request.setAllowedOverRoaming(false);
-            request.addRequestHeader("User-Agent", "LinkSave/2.0 Android");
+            request.addRequestHeader("User-Agent", "LinkSave/2.1 Android");
             if (mime != null) request.setMimeType(mime);
             request.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS, "LinkSave/" + fileName);
 
             DownloadManager manager = (DownloadManager) getSystemService(Context.DOWNLOAD_SERVICE);
             if (manager == null) throw new IllegalStateException("DownloadManager unavailable");
             manager.enqueue(request);
-            statusText.append("\n\nبدأ التنزيل إلى Downloads/LinkSave");
-            Toast.makeText(this, "بدأ تنزيل الفيديو", Toast.LENGTH_SHORT).show();
+            statusText.append("\n\nسيُحفظ بصيغة: " + ext.toUpperCase(Locale.ROOT) + "\nبدأ التنزيل إلى Downloads/LinkSave");
+            Toast.makeText(this, "بدأ تنزيل الفيديو بصيغته الصحيحة", Toast.LENGTH_SHORT).show();
         } catch (Exception e) {
             statusText.setText("تعذر بدء التنزيل: " + e.getMessage());
         }
+    }
+
+    private String normalizeMime(String mime) {
+        if (mime == null) return null;
+        int semi = mime.indexOf(';');
+        if (semi >= 0) mime = mime.substring(0, semi);
+        mime = mime.trim().toLowerCase(Locale.ROOT);
+        return mime.isEmpty() ? null : mime;
     }
 
     private String guessFileName(String url) {
         try {
             Uri uri = Uri.parse(url);
             String segment = uri.getLastPathSegment();
-            if (segment != null && !segment.trim().isEmpty() && segment.contains(".")) {
+            if (segment != null && !segment.trim().isEmpty()) {
                 segment = URLDecoder.decode(segment, StandardCharsets.UTF_8.name());
-                segment = segment.replaceAll("[\\\\/:*?\"<>|]", "_");
+                segment = sanitizeFileName(segment);
                 if (segment.length() > 100) segment = segment.substring(segment.length() - 100);
-                return segment;
+                if (!segment.isEmpty()) return segment;
             }
-        } catch (Exception ignored) {
-        }
-        return "linksave_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date()) + ".bin";
+        } catch (Exception ignored) {}
+        return "linksave_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
     }
 
     private String fileNameFromDisposition(String cd) {
@@ -304,11 +330,25 @@ public class MainActivity extends android.app.Activity {
             String value = cd.substring(p + 9).trim();
             int semi = value.indexOf(';');
             if (semi >= 0) value = value.substring(0, semi);
-            value = value.replace("\"", "").trim().replaceAll("[\\\\/:*?\"<>|]", "_");
-            return value.isEmpty() ? null : value;
+            value = value.replace("\"", "").trim();
+            return value.isEmpty() ? null : sanitizeFileName(value);
         } catch (Exception e) {
             return null;
         }
+    }
+
+    private String replaceExtension(String fileName, String ext) {
+        String base = fileName;
+        int slash = Math.max(base.lastIndexOf('/'), base.lastIndexOf('\\'));
+        int dot = base.lastIndexOf('.');
+        if (dot > slash) base = base.substring(0, dot);
+        if (base.isEmpty()) base = "linksave_" + new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        return base + "." + ext.toLowerCase(Locale.ROOT);
+    }
+
+    private String sanitizeFileName(String name) {
+        if (name == null) return "";
+        return name.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
     }
 
     private String extensionOf(String fileName) {
@@ -322,11 +362,18 @@ public class MainActivity extends android.app.Activity {
 
     private String extensionFromMime(String mime) {
         if (mime == null) return "";
+        if ("video/mp4".equals(mime)) return "mp4";
+        if ("video/webm".equals(mime)) return "webm";
+        if ("video/quicktime".equals(mime)) return "mov";
+        if ("video/3gpp".equals(mime)) return "3gp";
+        if ("video/x-matroska".equals(mime)) return "mkv";
+        if ("video/mp2t".equals(mime)) return "ts";
         String e = MimeTypeMap.getSingleton().getExtensionFromMimeType(mime);
         return e == null ? "" : e;
     }
 
     private boolean isVideo(String ext) {
+        if (ext == null) return false;
         String e = ext.toLowerCase(Locale.ROOT);
         return e.equals("mp4") || e.equals("webm") || e.equals("mkv") || e.equals("mov") || e.equals("m4v") || e.equals("3gp") || e.equals("ts");
     }
@@ -348,10 +395,7 @@ public class MainActivity extends android.app.Activity {
         double v = bytes;
         String[] units = {"B", "KB", "MB", "GB"};
         int i = 0;
-        while (v >= 1024 && i < units.length - 1) {
-            v /= 1024;
-            i++;
-        }
+        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
         return new DecimalFormat(v >= 100 ? "0" : v >= 10 ? "0.0" : "0.00").format(v) + " " + units[i];
     }
 
