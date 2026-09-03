@@ -1,114 +1,42 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:background="#111827"
-    android:fillViewport="true">
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp"
-        android:layoutDirection="rtl">
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="LinkSave"
-            android:textColor="#FFFFFF"
-            android:textSize="30sp"
-            android:textStyle="bold"
-            android:gravity="center" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="ألصق رابط فيديو مباشر لمعاينته ومعرفة الجودة والامتداد ثم تنزيله"
-            android:textColor="#D1D5DB"
-            android:textSize="15sp"
-            android:gravity="center" />
-
-        <EditText
-            android:id="@+id/urlInput"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="22dp"
-            android:hint="https://example.com/video.mp4"
-            android:inputType="textUri"
-            android:maxLines="4"
-            android:minHeight="64dp"
-            android:padding="14dp"
-            android:textColor="#111827"
-            android:textColorHint="#6B7280"
-            android:background="#FFFFFF"
-            android:gravity="start|center_vertical" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:orientation="horizontal">
-
-            <Button
-                android:id="@+id/pasteButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="لصق" />
-
-            <Space android:layout_width="10dp" android:layout_height="1dp" />
-
-            <Button
-                android:id="@+id/checkButton"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="تحليل ومعاينة" />
-        </LinearLayout>
-
-        <FrameLayout
-            android:id="@+id/previewCard"
-            android:layout_width="match_parent"
-            android:layout_height="220dp"
-            android:layout_marginTop="18dp"
-            android:background="#000000"
-            android:visibility="gone">
-
-            <VideoView
-                android:id="@+id/videoPreview"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent" />
-        </FrameLayout>
-
-        <TextView
-            android:id="@+id/statusText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:padding="14dp"
-            android:text="جاهز"
-            android:textColor="#E5E7EB"
-            android:textSize="15sp"
-            android:background="#1F2937" />
-
-        <Button
-            android:id="@+id/downloadButton"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="18dp"
-            android:text="تنزيل الفيديو"
-            android:textSize="17sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="يعرض المعاينة والدقة والامتداد عندما تكون معلومات الملف متاحة. روابط صفحات المواقع الاجتماعية قد لا تعمل ما لم يوفّر الموقع رابط الفيديو المباشر."
-            android:textColor="#9CA3AF"
-            android:textSize="13sp" />
-
-    </LinearLayout>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android" android:layout_width="match_parent" android:layout_height="match_parent" android:background="#0B1220" android:fillViewport="true">
+ <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="vertical" android:padding="18dp" android:layoutDirection="rtl">
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="LinkSave V3" android:textColor="#FFFFFF" android:textSize="30sp" android:textStyle="bold" android:gravity="center"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="5dp" android:text="محلل وتنزيل وسائط ذكي • بدون إعلانات" android:textColor="#9CA3AF" android:textSize="14sp" android:gravity="center"/>
+  <EditText android:id="@+id/urlInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:minHeight="82dp" android:hint="الصق رابطًا أو عدة روابط، كل رابط في سطر" android:inputType="textMultiLine|textUri" android:gravity="start|top" android:padding="14dp" android:textColor="#111827" android:textColorHint="#6B7280" android:background="#FFFFFF"/>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="10dp">
+   <Button android:id="@+id/pasteButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="لصق"/>
+   <Space android:layout_width="8dp" android:layout_height="1dp"/>
+   <Button android:id="@+id/checkButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="تحليل"/>
+   <Space android:layout_width="8dp" android:layout_height="1dp"/>
+   <Button android:id="@+id/clearButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="مسح"/>
+  </LinearLayout>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="16dp" android:text="خيارات التنزيل" android:textColor="#FFFFFF" android:textStyle="bold" android:textSize="17sp"/>
+  <Spinner android:id="@+id/qualitySpinner" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="8dp" android:background="#FFFFFF"/>
+  <Spinner android:id="@+id/modeSpinner" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="8dp" android:background="#FFFFFF"/>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+   <Spinner android:id="@+id/audioFormatSpinner" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:background="#FFFFFF"/>
+   <Space android:layout_width="8dp" android:layout_height="1dp"/>
+   <Spinner android:id="@+id/bitrateSpinner" android:layout_width="0dp" android:layout_height="52dp" android:layout_weight="1" android:background="#FFFFFF"/>
+  </LinearLayout>
+  <CheckBox android:id="@+id/wifiOnly" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="التنزيل عبر Wi‑Fi فقط" android:textColor="#E5E7EB"/>
+  <CheckBox android:id="@+id/downloadAll" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="تنزيل كل الصور/الفيديوهات إذا كان المنشور يحتوي عدة عناصر" android:textColor="#E5E7EB" android:checked="true"/>
+  <CheckBox android:id="@+id/allowDuplicates" android:layout_width="match_parent" android:layout_height="wrap_content" android:text="السماح بتنزيل الملف المكرر" android:textColor="#E5E7EB"/>
+  <FrameLayout android:id="@+id/previewCard" android:layout_width="match_parent" android:layout_height="220dp" android:layout_marginTop="14dp" android:background="#000000" android:visibility="gone">
+   <VideoView android:id="@+id/videoPreview" android:layout_width="match_parent" android:layout_height="match_parent"/>
+   <ImageView android:id="@+id/imagePreview" android:layout_width="match_parent" android:layout_height="match_parent" android:scaleType="centerCrop" android:visibility="gone"/>
+  </FrameLayout>
+  <TextView android:id="@+id/summaryText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:textColor="#60A5FA" android:textStyle="bold"/>
+  <TextView android:id="@+id/statusText" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="10dp" android:padding="14dp" android:text="جاهز" android:textColor="#E5E7EB" android:textSize="14sp" android:background="#172033" android:textIsSelectable="true"/>
+  <Button android:id="@+id/downloadButton" android:layout_width="match_parent" android:layout_height="58dp" android:layout_marginTop="14dp" android:text="تنزيل الآن" android:textSize="18sp" android:textStyle="bold"/>
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+   <Button android:id="@+id/historyButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="السجل"/>
+   <Space android:layout_width="8dp" android:layout_height="1dp"/>
+   <Button android:id="@+id/openDownloadsButton" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:text="ملفات التنزيل"/>
+  </LinearLayout>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="18dp" android:text="مزود تحليل المنصات" android:textColor="#FFFFFF" android:textStyle="bold"/>
+  <EditText android:id="@+id/providerInput" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:hint="https://your-cobalt-instance.example/" android:inputType="textUri" android:padding="12dp" android:textColor="#111827" android:textColorHint="#6B7280" android:background="#FFFFFF"/>
+  <Button android:id="@+id/saveProviderButton" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="7dp" android:text="حفظ مزود التحليل"/>
+  <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="14dp" android:text="يدعم الروابط المباشرة محليًا، والمنصات الاجتماعية عبر Cobalt المتوافق. الجودة والصيغ المتاحة تعتمد على المصدر والمزود. لا يتجاوز التطبيق DRM أو الحماية التقنية." android:textColor="#9CA3AF" android:textSize="12sp"/>
+ </LinearLayout>
 </ScrollView>
