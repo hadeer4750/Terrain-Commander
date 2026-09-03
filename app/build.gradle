@@ -10,7 +10,7 @@ android {
         }
     }
     namespace 'com.terrain.commander'; compileSdk 35
-    defaultConfig { testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'; applicationId 'com.terrain.commander'; minSdk 26; targetSdk 35; versionCode 7; versionName '2.5' }
+    defaultConfig { testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'; applicationId 'com.terrain.commander'; minSdk 26; targetSdk 35; versionCode 8; versionName '2.6' }
 }
 
 dependencies {
