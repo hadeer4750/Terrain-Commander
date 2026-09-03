@@ -18,216 +18,25 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 public class ContactAwareMainActivity extends MainActivity {
-    private static final int CONTACT_REQ = 177;
-    private static final int CALL_REQ = 178;
+    private static final int CONTACT_REQ=177, CALL_REQ=178;
     private WebView contactWeb;
-    private String pendingContactName;
-    private String pendingCallNumber;
+    private String pendingContactName, pendingCallNumber, pendingMode;
 
-    @Override public void onCreate(Bundle state) {
-        super.onCreate(state);
-        contactWeb = findWebView(getWindow().getDecorView());
-        if (contactWeb != null) {
-            contactWeb.addJavascriptInterface(new ContactBridge(), "AndroidContacts");
-            scheduleBridgeInstall();
-        }
-    }
-
-    @Override protected void onResume() {
-        super.onResume();
-        scheduleBridgeInstall();
-    }
-
-    private WebView findWebView(View view) {
-        if (view instanceof WebView) return (WebView) view;
-        if (view instanceof ViewGroup) {
-            ViewGroup group = (ViewGroup) view;
-            for (int i = 0; i < group.getChildCount(); i++) {
-                WebView found = findWebView(group.getChildAt(i));
-                if (found != null) return found;
-            }
-        }
-        return null;
-    }
-
-    private void scheduleBridgeInstall() {
-        if (contactWeb == null) return;
-        contactWeb.postDelayed(this::installBridge, 500);
-        contactWeb.postDelayed(this::installBridge, 1500);
-        contactWeb.postDelayed(this::installBridge, 3000);
-    }
-
-    private void installBridge() {
-        if (contactWeb == null) return;
-        String script = "(function(){" +
-            "if(window.__terrainContactsInstalled||typeof window.execute!=='function')return;" +
-            "window.__terrainContactsInstalled=true;" +
-            "var original=window.execute;" +
-            "window.execute=async function(raw){" +
-              "var text=(typeof normalize==='function'?normalize(raw||''):String(raw||'').trim());" +
-              "var isCall=/^(?:اتصل|دق على)\\s+/.test(text);" +
-              "var hasNumber=/(?:\\+?964|0)?7\\d{9}/.test(text);" +
-              "if(isCall&&!hasNumber&&window.AndroidContacts){" +
-                "var name=text.replace(/^(?:اتصل|دق على)\\s+/,'').trim();" +
-                "if(name){" +
-                  "if(typeof say==='function')say('أبحث عن '+name);" +
-                  "AndroidContacts.callContact(name);" +
-                  "if(typeof log==='function')log(raw,'بحث عن جهة الاتصال: '+name);" +
-                  "return 'بحث عن جهة اتصال';" +
-                "}" +
-              "}" +
-              "return original(raw);" +
-            "};" +
-          "})();";
-        contactWeb.evaluateJavascript(script, null);
-    }
-
-    private String normalizeName(String value) {
-        if (value == null) return "";
-        return value.replaceAll("[\\u064B-\\u065F\\u0670\\u0640]", "")
-                .replace('أ','ا').replace('إ','ا').replace('آ','ا')
-                .replaceAll("\\s+", " ").trim().toLowerCase();
-    }
-
-    private void callContact(String requestedName) {
-        String name = requestedName == null ? "" : requestedName.trim();
-        if (name.isEmpty()) {
-            announce("قل اسم الشخص بعد كلمة اتصل");
-            return;
-        }
-        if (checkSelfPermission(Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
-            pendingContactName = name;
-            requestPermissions(new String[]{Manifest.permission.READ_CONTACTS}, CONTACT_REQ);
-            return;
-        }
-        lookupAndCall(name);
-    }
-
-    private void lookupAndCall(String requestedName) {
-        final String needle = normalizeName(requestedName);
-        ArrayList<String[]> exact = new ArrayList<>();
-        ArrayList<String[]> partial = new ArrayList<>();
-        String[] projection = {
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
-                ContactsContract.CommonDataKinds.Phone.NUMBER
-        };
-        try (Cursor cursor = getContentResolver().query(
-                ContactsContract.CommonDataKinds.Phone.CONTENT_URI,
-                projection, null, null,
-                ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME + " ASC")) {
-            if (cursor != null) {
-                while (cursor.moveToNext()) {
-                    String display = cursor.getString(0);
-                    String number = cursor.getString(1);
-                    if (number == null || number.trim().isEmpty()) continue;
-                    String normalized = normalizeName(display);
-                    if (normalized.equals(needle)) exact.add(new String[]{display, number});
-                    else if (normalized.contains(needle)) partial.add(new String[]{display, number});
-                }
-            }
-        } catch (Exception error) {
-            announce("تعذر قراءة جهات الاتصال");
-            return;
-        }
-
-        ArrayList<String[]> selected = exact.isEmpty() ? partial : exact;
-        if (selected.isEmpty()) {
-            announce("لم أجد " + requestedName + " في جهات الاتصال");
-            return;
-        }
-
-        LinkedHashMap<String,String> unique = new LinkedHashMap<>();
-        for (String[] hit : selected) {
-            String clean = hit[1].replaceAll("[^+0-9]", "");
-            if (!clean.isEmpty()) unique.put(clean, hit[0] == null ? requestedName : hit[0]);
-        }
-        if (unique.isEmpty()) {
-            announce("لم أجد رقم هاتف صالحًا لهذا الاسم");
-            return;
-        }
-
-        if (unique.size() == 1) {
-            Map.Entry<String,String> one = unique.entrySet().iterator().next();
-            announce("أتصل بـ " + one.getValue());
-            callNumber(one.getKey());
-            return;
-        }
-
-        ArrayList<Map.Entry<String,String>> choices = new ArrayList<>(unique.entrySet());
-        String[] labels = new String[choices.size()];
-        for (int i = 0; i < choices.size(); i++) {
-            Map.Entry<String,String> item = choices.get(i);
-            labels[i] = item.getValue() + " — " + item.getKey();
-        }
-        new AlertDialog.Builder(this)
-                .setTitle("أي رقم تريد؟")
-                .setItems(labels, (dialog, which) -> {
-                    Map.Entry<String,String> item = choices.get(which);
-                    announce("أتصل بـ " + item.getValue());
-                    callNumber(item.getKey());
-                })
-                .setNegativeButton("إلغاء", null)
-                .show();
-    }
-
-    private void callNumber(String number) {
-        String clean = number == null ? "" : number.replaceAll("[^+0-9]", "");
-        if (clean.isEmpty()) {
-            announce("رقم الهاتف غير صالح");
-            return;
-        }
-        if (checkSelfPermission(Manifest.permission.CALL_PHONE) != PackageManager.PERMISSION_GRANTED) {
-            pendingCallNumber = clean;
-            requestPermissions(new String[]{Manifest.permission.CALL_PHONE}, CALL_REQ);
-            return;
-        }
-        try {
-            startActivity(new Intent(Intent.ACTION_CALL, Uri.parse("tel:" + clean)));
-        } catch (Exception error) {
-            try {
-                startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + clean)));
-            } catch (Exception ignored) {
-                announce("تعذر بدء الاتصال");
-            }
-        }
-    }
-
-    private void announce(String message) {
-        if (contactWeb == null) return;
-        String quoted = JSONObject.quote(message == null ? "" : message);
-        contactWeb.evaluateJavascript("if(typeof say==='function'){say(" + quoted + ");}else if(window.NativeVoice&&NativeVoice.onNotice){NativeVoice.onNotice(" + quoted + ");}", null);
-    }
-
-    public class ContactBridge {
-        @JavascriptInterface public void callContact(String name) {
-            runOnUiThread(() -> ContactAwareMainActivity.this.callContact(name));
-        }
-    }
-
-    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grants) {
-        super.onRequestPermissionsResult(requestCode, permissions, grants);
-        if (requestCode == CONTACT_REQ) {
-            String name = pendingContactName;
-            pendingContactName = null;
-            if (grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED && name != null) {
-                lookupAndCall(name);
-            } else {
-                announce("صلاحية جهات الاتصال مطلوبة للاتصال بالاسم");
-            }
-        } else if (requestCode == CALL_REQ) {
-            String number = pendingCallNumber;
-            pendingCallNumber = null;
-            if (grants.length > 0 && grants[0] == PackageManager.PERMISSION_GRANTED && number != null) {
-                callNumber(number);
-            } else if (number != null) {
-                announce("لم تُمنح صلاحية الاتصال المباشر؛ سأفتح شاشة الاتصال");
-                try { startActivity(new Intent(Intent.ACTION_DIAL, Uri.parse("tel:" + number))); } catch (Exception ignored) {}
-            }
-        }
-    }
-
-    @Override protected void onDestroy() {
-        if (contactWeb != null) contactWeb.removeJavascriptInterface("AndroidContacts");
-        super.onDestroy();
-    }
+    @Override public void onCreate(Bundle state){super.onCreate(state);contactWeb=findWebView(getWindow().getDecorView());if(contactWeb!=null){contactWeb.addJavascriptInterface(new ContactBridge(),"AndroidContacts");scheduleBridgeInstall();}}
+    @Override protected void onResume(){super.onResume();scheduleBridgeInstall();}
+    private WebView findWebView(View v){if(v instanceof WebView)return(WebView)v;if(v instanceof ViewGroup){ViewGroup g=(ViewGroup)v;for(int i=0;i<g.getChildCount();i++){WebView w=findWebView(g.getChildAt(i));if(w!=null)return w;}}return null;}
+    private void scheduleBridgeInstall(){if(contactWeb==null)return;contactWeb.postDelayed(this::installBridge,500);contactWeb.postDelayed(this::installBridge,1500);contactWeb.postDelayed(this::installBridge,3000);}
+    private void installBridge(){if(contactWeb==null)return;String s="(function(){if(window.__terrainContacts27||typeof window.execute!=='function')return;window.__terrainContacts27=true;var original=window.execute;window.execute=async function(raw){var text=(typeof normalize==='function'?normalize(raw||''):String(raw||'').trim());var wa=/^(?:اتصل|دق على|راسل)\\s+/.test(text)&&/(?:واتساب|واتس اب|واتس)$/.test(text);var normal=/^(?:اتصل|دق على)\\s+/.test(text);var hasNumber=/(?:\\+?964|0)?7\\d{9}/.test(text);if((wa||normal)&&!hasNumber&&window.AndroidContacts){var mode=wa?(text.indexOf('راسل')===0?'whatsapp_chat':'whatsapp_call'):'phone';var name=text.replace(/^(?:اتصل|دق على|راسل)\\s+/,'').replace(/\\s+(?:واتساب|واتس اب|واتس)$/,'').trim();if(name){if(typeof say==='function')say('أبحث عن '+name);AndroidContacts.contactAction(name,mode);if(typeof log==='function')log(raw,'جهة الاتصال: '+name);return 'جهة اتصال';}}return original(raw);};})();";contactWeb.evaluateJavascript(s,null);}
+    private String normalizeName(String v){if(v==null)return"";return v.replaceAll("[\\u064B-\\u065F\\u0670\\u0640]","").replace('أ','ا').replace('إ','ا').replace('آ','ا').replaceAll("\\s+"," ").trim().toLowerCase();}
+    private void contactAction(String name,String mode){name=name==null?"":name.trim();if(name.isEmpty()){announce("قل اسم الشخص");return;}if(checkSelfPermission(Manifest.permission.READ_CONTACTS)!=PackageManager.PERMISSION_GRANTED){pendingContactName=name;pendingMode=mode;requestPermissions(new String[]{Manifest.permission.READ_CONTACTS},CONTACT_REQ);return;}lookup(name,mode);}
+    private void lookup(String requested,String mode){String needle=normalizeName(requested);ArrayList<String[]> exact=new ArrayList<>(),partial=new ArrayList<>();String[] p={ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,ContactsContract.CommonDataKinds.Phone.NUMBER};try(Cursor c=getContentResolver().query(ContactsContract.CommonDataKinds.Phone.CONTENT_URI,p,null,null,ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME+" ASC")){if(c!=null)while(c.moveToNext()){String d=c.getString(0),n=c.getString(1);if(n==null||n.trim().isEmpty())continue;String x=normalizeName(d);if(x.equals(needle))exact.add(new String[]{d,n});else if(x.contains(needle))partial.add(new String[]{d,n});}}catch(Exception e){announce("تعذر قراءة جهات الاتصال");return;}ArrayList<String[]> selected=exact.isEmpty()?partial:exact;if(selected.isEmpty()){announce("لم أجد "+requested+" في جهات الاتصال");return;}LinkedHashMap<String,String> unique=new LinkedHashMap<>();for(String[] h:selected){String clean=h[1].replaceAll("[^+0-9]","");if(!clean.isEmpty())unique.put(clean,h[0]==null?requested:h[0]);}if(unique.isEmpty()){announce("لم أجد رقم هاتف صالحًا");return;}if(unique.size()==1){Map.Entry<String,String> one=unique.entrySet().iterator().next();perform(one.getKey(),one.getValue(),mode);return;}ArrayList<Map.Entry<String,String>> choices=new ArrayList<>(unique.entrySet());String[] labels=new String[choices.size()];for(int i=0;i<choices.size();i++)labels[i]=choices.get(i).getValue()+" — "+choices.get(i).getKey();new AlertDialog.Builder(this).setTitle("أي رقم تريد؟").setItems(labels,(d,w)->{Map.Entry<String,String> item=choices.get(w);perform(item.getKey(),item.getValue(),mode);}).setNegativeButton("إلغاء",null).show();}
+    private String international(String n){String x=n.replaceAll("[^+0-9]","");if(x.startsWith("00"))x="+"+x.substring(2);if(x.startsWith("0"))x="+964"+x.substring(1);return x.replace("+","");}
+    private void perform(String number,String display,String mode){if("whatsapp_call".equals(mode)||"whatsapp_chat".equals(mode)){announce(("whatsapp_call".equals(mode)?"أفتح واتساب للاتصال بـ ":"أفتح محادثة واتساب مع ")+display);openWhatsApp(number);return;}announce("أتصل بـ "+display);callNumber(number);}
+    private void openWhatsApp(String number){String phone=international(number);if(phone.isEmpty()){announce("رقم الهاتف غير صالح");return;}Intent i=new Intent(Intent.ACTION_VIEW,Uri.parse("https://wa.me/"+phone));if(isInstalled("com.whatsapp"))i.setPackage("com.whatsapp");else if(isInstalled("com.whatsapp.w4b"))i.setPackage("com.whatsapp.w4b");try{startActivity(i);}catch(Exception e){announce("واتساب غير مثبت أو الرقم غير متاح على واتساب");}}
+    private boolean isInstalled(String pkg){try{return getPackageManager().getApplicationInfo(pkg,0).enabled;}catch(Exception e){return false;}}
+    private void callNumber(String number){String clean=number==null?"":number.replaceAll("[^+0-9]","");if(clean.isEmpty()){announce("رقم الهاتف غير صالح");return;}if(checkSelfPermission(Manifest.permission.CALL_PHONE)!=PackageManager.PERMISSION_GRANTED){pendingCallNumber=clean;requestPermissions(new String[]{Manifest.permission.CALL_PHONE},CALL_REQ);return;}try{startActivity(new Intent(Intent.ACTION_CALL,Uri.parse("tel:"+clean)));}catch(Exception e){try{startActivity(new Intent(Intent.ACTION_DIAL,Uri.parse("tel:"+clean)));}catch(Exception ignored){announce("تعذر بدء الاتصال");}}}
+    private void announce(String m){if(contactWeb==null)return;String q=JSONObject.quote(m==null?"":m);contactWeb.evaluateJavascript("if(typeof say==='function'){say("+q+");}else if(window.NativeVoice&&NativeVoice.onNotice){NativeVoice.onNotice("+q+");}",null);}
+    public class ContactBridge{@JavascriptInterface public void callContact(String n){runOnUiThread(()->contactAction(n,"phone"));}@JavascriptInterface public void contactAction(String n,String mode){runOnUiThread(()->ContactAwareMainActivity.this.contactAction(n,mode));}}
+    @Override public void onRequestPermissionsResult(int code,String[] permissions,int[] grants){super.onRequestPermissionsResult(code,permissions,grants);if(code==CONTACT_REQ){String n=pendingContactName,m=pendingMode;pendingContactName=null;pendingMode=null;if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED&&n!=null)lookup(n,m==null?"phone":m);else announce("صلاحية جهات الاتصال مطلوبة");}else if(code==CALL_REQ){String n=pendingCallNumber;pendingCallNumber=null;if(grants.length>0&&grants[0]==PackageManager.PERMISSION_GRANTED&&n!=null)callNumber(n);else if(n!=null)try{startActivity(new Intent(Intent.ACTION_DIAL,Uri.parse("tel:"+n)));}catch(Exception ignored){}}}
+    @Override protected void onDestroy(){if(contactWeb!=null)contactWeb.removeJavascriptInterface("AndroidContacts");super.onDestroy();}
 }
