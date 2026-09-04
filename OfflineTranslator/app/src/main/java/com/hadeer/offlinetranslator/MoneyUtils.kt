@@ -61,11 +61,38 @@ object MoneyUtils {
         return out.toString()
     }
 
+    private fun numericAmounts(input: String): List<Long> = Regex("(?<!\\d)\\d[\\d,._ ]{0,18}")
+        .findAll(normalizeDigits(input))
+        .mapNotNull { it.value.replace(Regex("[,._ ]"), "").toLongOrNull() }
+        .filter { it > 0L }
+        .toList()
+
     fun parseAmount(input: String): Long? {
-        val normalized = normalizeDigits(input)
-        val digitMatches = Regex("(?<!\\d)\\d[\\d,._ ]{0,18}").findAll(normalized)
-            .mapNotNull { it.value.replace(Regex("[,._ ]"), "").toLongOrNull() }.toList()
+        val digitMatches = numericAmounts(input)
         if (digitMatches.isNotEmpty()) return digitMatches.maxOrNull()
+        return parseWords(normalizeDigits(input))
+    }
+
+    fun parsePriceAmount(input: String): Long? {
+        val normalized = normalizeDigits(input)
+        val priceWords = listOf("ریال", "ريال", "تومان", "تومن", "دینار", "دينار", "دلار", "دولار", "irr", "iqd", "usd", "price", "قیمت", "قيمت", "سعر", "مبلغ")
+        val priority = normalized.lineSequence()
+            .filter { line -> priceWords.any { word -> line.lowercase().contains(word.lowercase()) } }
+            .flatMap { numericAmounts(it).asSequence() }
+            .filter { it in 10L..9_999_999_999_999L }
+            .toList()
+        if (priority.isNotEmpty()) return priority.maxOrNull()
+
+        val candidates = numericAmounts(normalized).filter { it in 10L..9_999_999_999_999L }
+        if (candidates.isNotEmpty()) {
+            return candidates.maxByOrNull { value ->
+                var score = value.toString().length * 10
+                if (value >= 1_000L) score += 20
+                if (value >= 10_000L) score += 15
+                if (value in 1_300_000_000L..1_599_999_999L) score -= 60
+                score
+            }
+        }
         return parseWords(normalized)
     }
 
