@@ -40,6 +40,16 @@
             android:max="100"
             android:progress="0" />
 
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="10dp"
+            android:text="المبرمج هدير الخفاجي • 2026"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="#374151"
+            android:gravity="center" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -264,10 +274,20 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:layout_marginBottom="24dp"
             android:text="يعمل التطبيق بدون إذن إنترنت. دقة الصوت والصورة تعتمد على وضوح النطق والصورة وقد تحتاج لتصحيح النص يدويًا."
             android:textSize="12sp"
             android:textColor="#6B7280"
+            android:gravity="center" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:layout_marginBottom="24dp"
+            android:text="© 2026 المبرمج هدير الخفاجي"
+            android:textSize="13sp"
+            android:textStyle="bold"
+            android:textColor="#374151"
             android:gravity="center" />
     </LinearLayout>
 </ScrollView>
