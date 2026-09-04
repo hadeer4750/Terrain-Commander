@@ -11,8 +11,8 @@ android {
         applicationId = "com.hadeer.offlinetranslator"
         minSdk = 24
         targetSdk = 35
-        versionCode = 5
-        versionName = "2.0"
+        versionCode = 6
+        versionName = "2.1"
 
         ndk {
             abiFilters += listOf("arm64-v8a")
@@ -51,6 +51,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.core:core-ktx:1.15.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
     implementation("dev.ffmpegkit-maintained:llama-android:0.1.1")
     implementation("dev.ffmpegkit-maintained:whisper-android:1.0.0")
