@@ -4,13 +4,17 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.res.ColorStateList
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
+import android.graphics.Color
 import android.os.Bundle
 import android.provider.MediaStore
 import android.speech.tts.TextToSpeech
+import android.speech.tts.UtteranceProgressListener
 import android.view.View
 import android.widget.*
+import androidx.core.content.FileProvider
 import dev.ffmpegkit.llama.Llama
 import dev.ffmpegkit.llama.LlamaConfig
 import dev.ffmpegkit.llama.LlamaModel
@@ -33,6 +37,7 @@ class MainActivity : Activity() {
     private lateinit var understandingHint: TextView
     private lateinit var sourceLanguageSpinner: Spinner
     private lateinit var targetLanguageSpinner: Spinner
+    private lateinit var conversationModeButton: Button
     private lateinit var recordVoiceButton: Button
     private lateinit var stopRecordButton: Button
     private lateinit var translateButton: Button
@@ -55,6 +60,10 @@ class MainActivity : Activity() {
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var lastSpeakLanguage = "fa"
+    private var conversationMode = false
+    private var pendingListenLanguage: String? = null
+    private var pendingSwapBeforeListen = false
+    private var cameraImageFile: File? = null
     private val prefs by lazy { getSharedPreferences("offline_translator_v2", MODE_PRIVATE) }
 
     private val languages = listOf(
@@ -70,6 +79,7 @@ class MainActivity : Activity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         bindViews()
+        setupConversationButton()
         setupLanguageSelectors()
         loadSavedRates()
         setupTts()
@@ -100,6 +110,22 @@ class MainActivity : Activity() {
         priceImage = findViewById(R.id.priceImage)
     }
 
+    private fun setupConversationButton() {
+        val parent = recordVoiceButton.parent as LinearLayout
+        conversationModeButton = Button(this).apply {
+            text = "🔁 وضع المحادثة التلقائي: إيقاف"
+            textSize = 15f
+            setTextColor(Color.WHITE)
+            backgroundTintList = ColorStateList.valueOf(Color.parseColor("#475569"))
+            layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(52)).apply {
+                topMargin = dp(10)
+            }
+        }
+        parent.addView(conversationModeButton, parent.indexOfChild(recordVoiceButton))
+    }
+
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
+
     private fun setupLanguageSelectors() {
         val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, languages.map { it.label }).also {
             it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -114,6 +140,7 @@ class MainActivity : Activity() {
     private fun selectedTargetLanguage(): String = languages[targetLanguageSpinner.selectedItemPosition.coerceIn(0, languages.lastIndex)].code
 
     private fun setupActions() {
+        conversationModeButton.setOnClickListener { toggleConversationMode() }
         recordVoiceButton.setOnClickListener {
             currentRecordLanguage = selectedSourceLanguage()
             startVoice(RecordMode.TRANSLATE, currentRecordLanguage)
@@ -137,11 +164,30 @@ class MainActivity : Activity() {
         findViewById<Button>(R.id.banknoteCountButton).setOnClickListener { calculateBanknoteCount() }
     }
 
-    private fun swapLanguages() {
+    private fun toggleConversationMode() {
+        conversationMode = !conversationMode
+        pendingListenLanguage = null
+        pendingSwapBeforeListen = false
+        if (conversationMode) {
+            conversationModeButton.text = "🟢 وضع المحادثة التلقائي: يعمل"
+            conversationModeButton.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#059669"))
+            understandingHint.text = "🟢 بعد نطق الترجمة سيبدّل التطبيق اللغات ويبدأ الاستماع للطرف الآخر تلقائيًا. اضغط إيقاف بعد كل جملة."
+        } else {
+            conversationModeButton.text = "🔁 وضع المحادثة التلقائي: إيقاف"
+            conversationModeButton.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#475569"))
+            understandingHint.text = "إذا لم يفهم الكلام بوضوح سيطلب منك إعادة النطق."
+        }
+    }
+
+    private fun swapLanguageSelectorsOnly() {
         val s = sourceLanguageSpinner.selectedItemPosition
         val t = targetLanguageSpinner.selectedItemPosition
         sourceLanguageSpinner.setSelection(t)
         targetLanguageSpinner.setSelection(s)
+    }
+
+    private fun swapLanguages() {
+        swapLanguageSelectorsOnly()
         val src = sourceText.text.toString()
         val dst = translatedText.text.toString()
         if (dst.isNotBlank()) {
@@ -151,7 +197,38 @@ class MainActivity : Activity() {
     }
 
     private fun setupTts() {
-        tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
+        tts = TextToSpeech(this) { status ->
+            ttsReady = status == TextToSpeech.SUCCESS
+            if (ttsReady) {
+                tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
+                    override fun onStart(utteranceId: String?) = Unit
+                    override fun onError(utteranceId: String?) {
+                        if (utteranceId?.startsWith("conv_") == true) {
+                            pendingListenLanguage = null
+                            pendingSwapBeforeListen = false
+                        }
+                    }
+                    override fun onDone(utteranceId: String?) {
+                        if (utteranceId?.startsWith("conv_") != true) return
+                        val nextLanguage = pendingListenLanguage ?: return
+                        val shouldSwap = pendingSwapBeforeListen
+                        pendingListenLanguage = null
+                        pendingSwapBeforeListen = false
+                        runOnUiThread {
+                            if (!conversationMode || isFinishing || isDestroyed) return@runOnUiThread
+                            if (shouldSwap) swapLanguageSelectorsOnly()
+                            currentRecordLanguage = nextLanguage
+                            scope.launch {
+                                delay(350)
+                                if (conversationMode && recorder?.isRecording() != true) {
+                                    startVoice(RecordMode.TRANSLATE, nextLanguage)
+                                }
+                            }
+                        }
+                    }
+                })
+            }
+        }
     }
 
     private fun prepareOfflineEngines() {
@@ -228,7 +305,7 @@ class MainActivity : Activity() {
 
     private fun setModelControlsEnabled(enabled: Boolean) {
         listOf(
-            recordVoiceButton, translateButton, swapButton, speakButton,
+            conversationModeButton, recordVoiceButton, translateButton, swapButton, speakButton,
             findViewById<Button>(R.id.moneyVoiceFaButton), findViewById<Button>(R.id.moneyVoiceArButton),
             findViewById<Button>(R.id.moneyVoiceEnButton), findViewById<Button>(R.id.cameraButton),
             findViewById<Button>(R.id.galleryButton)
@@ -321,8 +398,12 @@ class MainActivity : Activity() {
     private fun isUnclearSpeech(text: String): Boolean {
         if (text.length < 2) return true
         val lower = text.lowercase()
-        if (lower.contains("[blank") || lower.contains("[noise") || lower.contains("[silence")) return true
-        return text.count { it.isLetterOrDigit() } < 2
+        if (lower.contains("[blank") || lower.contains("[noise") || lower.contains("[silence") || lower == "." || lower == "...") return true
+        val meaningful = text.count { it.isLetterOrDigit() }
+        if (meaningful < 2) return true
+        val words = text.split(Regex("\\s+")).filter { it.any(Char::isLetterOrDigit) }
+        if (words.isEmpty()) return true
+        return false
     }
 
     private fun askToRepeat(language: String) {
@@ -333,7 +414,11 @@ class MainActivity : Activity() {
         }
         understandingHint.text = "🔴 $message"
         statusText.text = message
-        speakLocal(message, language)
+        if (conversationMode) {
+            speakLocal(message, language, nextListenLanguage = language, swapBeforeListen = false)
+        } else {
+            speakLocal(message, language)
+        }
     }
 
     private fun translateManual() {
@@ -366,7 +451,10 @@ class MainActivity : Activity() {
             translatedText.setText(cleaned)
             lastSpeakLanguage = targetLang
             statusText.text = "تمت الترجمة محليًا."
-            if (autoSpeak) speakLocal(cleaned, targetLang)
+            if (autoSpeak) {
+                if (conversationMode) speakLocal(cleaned, targetLang, nextListenLanguage = targetLang, swapBeforeListen = true)
+                else speakLocal(cleaned, targetLang)
+            }
         } catch (e: Exception) {
             statusText.text = "خطأ في الترجمة المحلية: ${e.message ?: e.javaClass.simpleName}"
         }
@@ -375,11 +463,15 @@ class MainActivity : Activity() {
     private fun translationPrompt(source: String, target: String): String {
         val sourceName = when (source) { "ar" -> "Arabic (including Iraqi dialect)"; "fa" -> "Persian"; else -> "English" }
         val targetName = when (target) { "ar" -> "clear natural Arabic, preferring understandable Iraqi wording when conversational"; "fa" -> "natural everyday Persian"; else -> "natural English" }
-        return "You are a high-accuracy offline translator. Translate from $sourceName to $targetName. Preserve names, numbers, money values, units and meaning. Understand Iraqi colloquial Arabic words such as ماكو, شكد, وين, هسه, اريد, خوش. Do not explain, summarize or add information. Output ONLY the translation."
+        return "You are a high-accuracy offline translator. Translate from $sourceName to $targetName. Preserve names, numbers, money values, units and meaning. Understand Iraqi colloquial Arabic words such as ماكو, شكد, وين, هسه, اريد, خوش. Prefer the intended conversational meaning over a word-for-word translation. Do not explain, summarize or add information. Output ONLY the translation."
     }
 
-    private fun speakLocal(text: String, language: String) {
-        if (!ttsReady) return
+    private fun speakLocal(text: String, language: String, nextListenLanguage: String? = null, swapBeforeListen: Boolean = false) {
+        if (!ttsReady) {
+            pendingListenLanguage = null
+            pendingSwapBeforeListen = false
+            return
+        }
         val engine = tts ?: return
         val locale = when (language) {
             "fa" -> Locale("fa", "IR")
@@ -390,10 +482,19 @@ class MainActivity : Activity() {
         val offlineVoice = engine.voices?.firstOrNull { it.locale.language == locale.language && !it.isNetworkConnectionRequired }
         if (offlineVoice == null) {
             statusText.text = "لا يوجد صوت أوفلاين مثبت لهذه اللغة على الهاتف. الترجمة النصية تعمل."
+            pendingListenLanguage = null
+            pendingSwapBeforeListen = false
             return
         }
         engine.voice = offlineVoice
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "offline_translation")
+        val utteranceId = if (conversationMode && nextListenLanguage != null) {
+            pendingListenLanguage = nextListenLanguage
+            pendingSwapBeforeListen = swapBeforeListen
+            "conv_${System.currentTimeMillis()}"
+        } else {
+            "offline_translation_${System.currentTimeMillis()}"
+        }
+        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, utteranceId)
     }
 
     private fun loadSavedRates() {
@@ -446,8 +547,17 @@ class MainActivity : Activity() {
 
     private fun openCamera() {
         val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE)
-        if (intent.resolveActivity(packageManager) != null) startActivityForResult(intent, REQ_CAMERA)
-        else toast("لا يوجد تطبيق كاميرا متاح")
+        if (intent.resolveActivity(packageManager) == null) return toast("لا يوجد تطبيق كاميرا متاح")
+        try {
+            val file = File(cacheDir, "price_capture_${System.currentTimeMillis()}.jpg")
+            val uri = FileProvider.getUriForFile(this, "${packageName}.fileprovider", file)
+            cameraImageFile = file
+            intent.putExtra(MediaStore.EXTRA_OUTPUT, uri)
+            intent.addFlags(Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivityForResult(intent, REQ_CAMERA)
+        } catch (e: Exception) {
+            toast("تعذر فتح الكاميرا: ${e.message ?: "خطأ غير معروف"}")
+        }
     }
 
     private fun openGallery() {
@@ -461,15 +571,33 @@ class MainActivity : Activity() {
         if (resultCode != RESULT_OK) return
         when (requestCode) {
             REQ_CAMERA -> {
-                val bitmap = data?.extras?.get("data") as? Bitmap
-                if (bitmap != null) analyzePriceImage(bitmap) else toast("تعذر قراءة صورة الكاميرا")
+                val file = cameraImageFile
+                try {
+                    val bitmap = if (file != null && file.exists() && file.length() > 0L) {
+                        BitmapFactory.decodeFile(file.absolutePath)
+                    } else {
+                        data?.extras?.get("data") as? Bitmap
+                    }
+                    if (bitmap != null) {
+                        val scaled = scaleForOcr(bitmap)
+                        if (scaled !== bitmap && !bitmap.isRecycled) bitmap.recycle()
+                        analyzePriceImage(scaled)
+                    } else toast("تعذر قراءة صورة الكاميرا")
+                } finally {
+                    file?.delete()
+                    cameraImageFile = null
+                }
             }
             REQ_GALLERY -> {
                 val uri = data?.data ?: return
                 try {
                     contentResolver.openInputStream(uri).use { input ->
                         val bitmap = BitmapFactory.decodeStream(input)
-                        if (bitmap != null) analyzePriceImage(scaleForOcr(bitmap))
+                        if (bitmap != null) {
+                            val scaled = scaleForOcr(bitmap)
+                            if (scaled !== bitmap && !bitmap.isRecycled) bitmap.recycle()
+                            analyzePriceImage(scaled)
+                        }
                     }
                 } catch (e: Exception) {
                     ocrResult.text = "تعذر فتح الصورة: ${e.message}"
@@ -480,8 +608,8 @@ class MainActivity : Activity() {
 
     private fun scaleForOcr(bitmap: Bitmap): Bitmap {
         val maxSide = maxOf(bitmap.width, bitmap.height)
-        if (maxSide <= 1800) return bitmap
-        val ratio = 1800f / maxSide.toFloat()
+        if (maxSide <= 2400) return bitmap
+        val ratio = 2400f / maxSide.toFloat()
         return Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true)
     }
 
@@ -491,9 +619,9 @@ class MainActivity : Activity() {
         scope.launch {
             try {
                 val result = withContext(Dispatchers.Default) { OcrEngine.recognize(this@MainActivity, bitmap) }
-                val amount = MoneyUtils.parseAmount(result.text)
+                val amount = MoneyUtils.parsePriceAmount(result.text)
                 if (amount == null) {
-                    ocrResult.text = "لم أتعرف على سعر واضح.\nثقة القراءة: ${result.confidence}%\nالنص المقروء:\n${result.text.ifBlank { "لا يوجد نص واضح" }}\n\nقرب الكاميرا من السعر وحاول مرة أخرى."
+                    ocrResult.text = "لم أتعرف على سعر واضح.\nثقة القراءة: ${result.confidence}%\nالنص المقروء:\n${result.text.ifBlank { "لا يوجد نص واضح" }}\n\nقرب الكاميرا من السعر واجعله مستقيمًا وواضح الإضاءة ثم حاول مرة أخرى."
                     return@launch
                 }
                 val currency = MoneyUtils.detectCurrency(result.text, defaultRialForBanknote = true)
@@ -538,6 +666,7 @@ class MainActivity : Activity() {
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
 
     override fun onDestroy() {
+        pendingListenLanguage = null
         try { recorder?.stop() } catch (_: Exception) {}
         whisperModel?.let { try { Whisper.releaseModel(it) } catch (_: Exception) {} }
         llamaModel?.let { try { Llama.releaseModel(it) } catch (_: Exception) {} }
