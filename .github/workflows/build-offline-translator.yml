@@ -10,7 +10,7 @@ on:
       - '.github/workflows/build-offline-translator.yml'
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   build:
@@ -61,7 +61,7 @@ jobs:
           sha256sum OfflineTranslator-v1.1-arm64.apk | tee OfflineTranslator-v1.1-arm64.sha256
           ls -lh OfflineTranslator-v1.1-arm64.apk
 
-      - name: Upload APK
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: OfflineTranslator-v1.1-arm64
@@ -70,3 +70,18 @@ jobs:
             OfflineTranslator-v1.1-arm64.sha256
           compression-level: 0
           retention-days: 7
+
+      - name: Publish direct APK release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          TAG='offline-translator-v1.1'
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" OfflineTranslator-v1.1-arm64.apk OfflineTranslator-v1.1-arm64.sha256 --clobber
+          else
+            gh release create "$TAG" OfflineTranslator-v1.1-arm64.apk OfflineTranslator-v1.1-arm64.sha256 \
+              --target "$GITHUB_SHA" \
+              --title 'Offline Translator v1.1 — Hadeer Al-Khafaji' \
+              --notes 'Offline Arabic ↔ Persian translator. Programmer: Hadeer Al-Khafaji © 2026.'
+          fi
