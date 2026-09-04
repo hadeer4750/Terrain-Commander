@@ -2,7 +2,7 @@ package com.hadeer.offlinetranslator
 
 import android.content.Context
 import android.graphics.Bitmap
-import cz.adaptech.tesseract4android.TessBaseAPI
+import com.googlecode.tesseract.android.TessBaseAPI
 import java.io.File
 
 object OcrEngine {
