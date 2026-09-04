@@ -37,7 +37,7 @@ jobs:
           set -euxo pipefail
           mkdir -p app/src/main/assets/models app/src/main/assets/tessdata
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/models/qwen.gguf 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_0.gguf?download=true'
-          # اختبار دقة أعلى: Whisper Small بدل Tiny. نحفظه بنفس اسم الملف الذي يحمّله التطبيق حاليًا لعزل أثر تغيير نموذج الصوت فقط.
+          # Whisper Small remains unchanged in v1.3; this build only adds the launcher icon.
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/models/ggml-tiny.bin 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true'
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/tessdata/fas.traineddata 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/fas.traineddata'
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/tessdata/ara.traineddata 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/ara.traineddata'
@@ -55,20 +55,20 @@ jobs:
         run: |
           set -euxo pipefail
           test -f OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk
-          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk OfflineTranslator-v1.2-Whisper-Small-arm64.apk
-          unzip -t OfflineTranslator-v1.2-Whisper-Small-arm64.apk >/dev/null
-          unzip -l OfflineTranslator-v1.2-Whisper-Small-arm64.apk | grep 'assets/models/qwen.gguf'
-          unzip -l OfflineTranslator-v1.2-Whisper-Small-arm64.apk | grep 'assets/models/ggml-tiny.bin'
-          sha256sum OfflineTranslator-v1.2-Whisper-Small-arm64.apk | tee OfflineTranslator-v1.2-Whisper-Small-arm64.sha256
-          ls -lh OfflineTranslator-v1.2-Whisper-Small-arm64.apk
+          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk OfflineTranslator-v1.3-Whisper-Small-arm64.apk
+          unzip -t OfflineTranslator-v1.3-Whisper-Small-arm64.apk >/dev/null
+          unzip -l OfflineTranslator-v1.3-Whisper-Small-arm64.apk | grep 'assets/models/qwen.gguf'
+          unzip -l OfflineTranslator-v1.3-Whisper-Small-arm64.apk | grep 'assets/models/ggml-tiny.bin'
+          sha256sum OfflineTranslator-v1.3-Whisper-Small-arm64.apk | tee OfflineTranslator-v1.3-Whisper-Small-arm64.sha256
+          ls -lh OfflineTranslator-v1.3-Whisper-Small-arm64.apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineTranslator-v1.2-Whisper-Small-arm64
+          name: OfflineTranslator-v1.3-Whisper-Small-arm64
           path: |
-            OfflineTranslator-v1.2-Whisper-Small-arm64.apk
-            OfflineTranslator-v1.2-Whisper-Small-arm64.sha256
+            OfflineTranslator-v1.3-Whisper-Small-arm64.apk
+            OfflineTranslator-v1.3-Whisper-Small-arm64.sha256
           compression-level: 0
           retention-days: 7
 
@@ -77,12 +77,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG='offline-translator-v1.2-whisper-small'
+          TAG='offline-translator-v1.3-whisper-small-icon'
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" OfflineTranslator-v1.2-Whisper-Small-arm64.apk OfflineTranslator-v1.2-Whisper-Small-arm64.sha256 --clobber
+            gh release upload "$TAG" OfflineTranslator-v1.3-Whisper-Small-arm64.apk OfflineTranslator-v1.3-Whisper-Small-arm64.sha256 --clobber
           else
-            gh release create "$TAG" OfflineTranslator-v1.2-Whisper-Small-arm64.apk OfflineTranslator-v1.2-Whisper-Small-arm64.sha256 \
+            gh release create "$TAG" OfflineTranslator-v1.3-Whisper-Small-arm64.apk OfflineTranslator-v1.3-Whisper-Small-arm64.sha256 \
               --target "$GITHUB_SHA" \
-              --title 'Offline Translator v1.2 — Whisper Small Test' \
-              --notes 'Arabic ↔ Persian offline translator test build. Speech recognition upgraded from Whisper Tiny to Whisper Small only; translation engine is unchanged for an isolated accuracy comparison. Programmer: Hadeer Al-Khafaji © 2026.'
+              --title 'Offline Translator v1.3 — Whisper Small + Icon' \
+              --notes 'Arabic ↔ Persian offline translator. Whisper Small remains unchanged from v1.2. v1.3 adds a custom translator launcher icon. Programmer: Hadeer Al-Khafaji © 2026.'
           fi

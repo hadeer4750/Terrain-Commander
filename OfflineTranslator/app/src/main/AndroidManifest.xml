@@ -10,6 +10,8 @@
         android:usesCleartextTraffic="false"
         android:largeHeap="true"
         android:label="مترجم السفر"
+        android:icon="@drawable/ic_translator_launcher"
+        android:roundIcon="@drawable/ic_translator_launcher"
         android:theme="@style/AppTheme">
         <activity
             android:name=".MainActivity"
