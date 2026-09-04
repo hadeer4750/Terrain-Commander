@@ -54,19 +54,19 @@ jobs:
         run: |
           set -euxo pipefail
           test -f OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk
-          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk OfflineTranslator-v1-arm64.apk
-          unzip -t OfflineTranslator-v1-arm64.apk >/dev/null
-          unzip -l OfflineTranslator-v1-arm64.apk | grep 'assets/models/qwen.gguf'
-          unzip -l OfflineTranslator-v1-arm64.apk | grep 'assets/models/ggml-tiny.bin'
-          sha256sum OfflineTranslator-v1-arm64.apk | tee OfflineTranslator-v1-arm64.sha256
-          ls -lh OfflineTranslator-v1-arm64.apk
+          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk OfflineTranslator-v1.1-arm64.apk
+          unzip -t OfflineTranslator-v1.1-arm64.apk >/dev/null
+          unzip -l OfflineTranslator-v1.1-arm64.apk | grep 'assets/models/qwen.gguf'
+          unzip -l OfflineTranslator-v1.1-arm64.apk | grep 'assets/models/ggml-tiny.bin'
+          sha256sum OfflineTranslator-v1.1-arm64.apk | tee OfflineTranslator-v1.1-arm64.sha256
+          ls -lh OfflineTranslator-v1.1-arm64.apk
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineTranslator-v1-arm64
+          name: OfflineTranslator-v1.1-arm64
           path: |
-            OfflineTranslator-v1-arm64.apk
-            OfflineTranslator-v1-arm64.sha256
+            OfflineTranslator-v1.1-arm64.apk
+            OfflineTranslator-v1.1-arm64.sha256
           compression-level: 0
           retention-days: 7
