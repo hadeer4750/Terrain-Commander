@@ -1,10 +1,10 @@
-name: Build Offline Translator APK
+name: Build TriTranslate Offline V2 APK
 
 on:
   workflow_dispatch:
   push:
     branches:
-      - offline-translator-v1
+      - offline-translator-v2-trilingual
     paths:
       - 'OfflineTranslator/**'
       - '.github/workflows/build-offline-translator.yml'
@@ -37,38 +37,40 @@ jobs:
           set -euxo pipefail
           mkdir -p app/src/main/assets/models app/src/main/assets/tessdata
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/models/qwen.gguf 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_0.gguf?download=true'
-          # Whisper Small remains unchanged in v1.3; this build only adds the launcher icon.
-          curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/models/ggml-tiny.bin 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true'
+          curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/models/ggml-small.bin 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true'
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/tessdata/fas.traineddata 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/fas.traineddata'
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/tessdata/ara.traineddata 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/ara.traineddata'
+          curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/tessdata/eng.traineddata 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/eng.traineddata'
           test $(stat -c%s app/src/main/assets/models/qwen.gguf) -gt 300000000
-          test $(stat -c%s app/src/main/assets/models/ggml-tiny.bin) -gt 400000000
+          test $(stat -c%s app/src/main/assets/models/ggml-small.bin) -gt 400000000
           test $(stat -c%s app/src/main/assets/tessdata/fas.traineddata) -gt 100000
           test $(stat -c%s app/src/main/assets/tessdata/ara.traineddata) -gt 100000
+          test $(stat -c%s app/src/main/assets/tessdata/eng.traineddata) -gt 100000
           ls -lh app/src/main/assets/models app/src/main/assets/tessdata
 
-      - name: Build debug APK
+      - name: Build APK
         working-directory: OfflineTranslator
         run: gradle :app:assembleDebug --stacktrace --no-daemon
 
-      - name: Verify and rename APK
+      - name: Verify APK
         run: |
           set -euxo pipefail
           test -f OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk
-          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk OfflineTranslator-v1.3-Whisper-Small-arm64.apk
-          unzip -t OfflineTranslator-v1.3-Whisper-Small-arm64.apk >/dev/null
-          unzip -l OfflineTranslator-v1.3-Whisper-Small-arm64.apk | grep 'assets/models/qwen.gguf'
-          unzip -l OfflineTranslator-v1.3-Whisper-Small-arm64.apk | grep 'assets/models/ggml-tiny.bin'
-          sha256sum OfflineTranslator-v1.3-Whisper-Small-arm64.apk | tee OfflineTranslator-v1.3-Whisper-Small-arm64.sha256
-          ls -lh OfflineTranslator-v1.3-Whisper-Small-arm64.apk
+          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk
+          unzip -t TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk >/dev/null
+          unzip -l TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk | grep 'assets/models/qwen.gguf'
+          unzip -l TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk | grep 'assets/models/ggml-small.bin'
+          unzip -l TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk | grep 'assets/tessdata/eng.traineddata'
+          sha256sum TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk | tee TriTranslate-Offline-V2.0-AR-EN-FA-arm64.sha256
+          ls -lh TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineTranslator-v1.3-Whisper-Small-arm64
+          name: TriTranslate-Offline-V2.0-AR-EN-FA-arm64
           path: |
-            OfflineTranslator-v1.3-Whisper-Small-arm64.apk
-            OfflineTranslator-v1.3-Whisper-Small-arm64.sha256
+            TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk
+            TriTranslate-Offline-V2.0-AR-EN-FA-arm64.sha256
           compression-level: 0
           retention-days: 7
 
@@ -77,12 +79,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG='offline-translator-v1.3-whisper-small-icon'
+          TAG='offline-translator-v2-trilingual-money'
+          NOTES='Offline Arabic + English + Persian translation, Whisper Small speech recognition, repeat prompt when speech is unclear, manual IQD/IRR/USD rates, price OCR, banknote count, and modern UI. Designed by Hadeer Al-Khafaji © 2026.'
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" OfflineTranslator-v1.3-Whisper-Small-arm64.apk OfflineTranslator-v1.3-Whisper-Small-arm64.sha256 --clobber
+            gh release upload "$TAG" TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk TriTranslate-Offline-V2.0-AR-EN-FA-arm64.sha256 --clobber
           else
-            gh release create "$TAG" OfflineTranslator-v1.3-Whisper-Small-arm64.apk OfflineTranslator-v1.3-Whisper-Small-arm64.sha256 \
+            gh release create "$TAG" TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk TriTranslate-Offline-V2.0-AR-EN-FA-arm64.sha256 \
               --target "$GITHUB_SHA" \
-              --title 'Offline Translator v1.3 — Whisper Small + Icon' \
-              --notes 'Arabic ↔ Persian offline translator. Whisper Small remains unchanged from v1.2. v1.3 adds a custom translator launcher icon. Programmer: Hadeer Al-Khafaji © 2026.'
+              --title 'TriTranslate Offline V2.0 — AR EN FA' \
+              --notes "$NOTES"
           fi
