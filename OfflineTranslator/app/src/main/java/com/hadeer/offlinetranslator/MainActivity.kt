@@ -31,36 +31,46 @@ class MainActivity : Activity() {
     private lateinit var sourceText: EditText
     private lateinit var translatedText: EditText
     private lateinit var understandingHint: TextView
-    private lateinit var recordArabicButton: Button
-    private lateinit var recordPersianButton: Button
+    private lateinit var sourceLanguageSpinner: Spinner
+    private lateinit var targetLanguageSpinner: Spinner
+    private lateinit var recordVoiceButton: Button
     private lateinit var stopRecordButton: Button
-    private lateinit var arToFaButton: Button
-    private lateinit var faToArButton: Button
+    private lateinit var translateButton: Button
+    private lateinit var swapButton: Button
     private lateinit var speakButton: Button
     private lateinit var usdIqdRate: EditText
-    private lateinit var usdTomanRate: EditText
+    private lateinit var usdIrrRate: EditText
     private lateinit var moneyAmount: EditText
     private lateinit var moneyResult: TextView
     private lateinit var noteDenomination: EditText
     private lateinit var ocrResult: TextView
-    private lateinit var currencyImage: ImageView
+    private lateinit var priceImage: ImageView
 
     private var llamaModel: LlamaModel? = null
     private var whisperModel: WhisperModel? = null
     private var recorder: WavRecorder? = null
     private var recordMode = RecordMode.NONE
+    private var currentRecordLanguage = "ar"
     private var modelsReady = false
     private var tts: TextToSpeech? = null
     private var ttsReady = false
     private var lastSpeakLanguage = "fa"
-    private val prefs by lazy { getSharedPreferences("offline_translator", MODE_PRIVATE) }
+    private val prefs by lazy { getSharedPreferences("offline_translator_v2", MODE_PRIVATE) }
 
-    enum class RecordMode { NONE, AR_TO_FA, FA_TO_AR, MONEY_AR, MONEY_FA }
+    private val languages = listOf(
+        LanguageItem("العربية", "ar"),
+        LanguageItem("English", "en"),
+        LanguageItem("فارسی", "fa")
+    )
+
+    data class LanguageItem(val label: String, val code: String)
+    enum class RecordMode { NONE, TRANSLATE, MONEY }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
         bindViews()
+        setupLanguageSelectors()
         loadSavedRates()
         setupTts()
         setupActions()
@@ -74,81 +84,112 @@ class MainActivity : Activity() {
         sourceText = findViewById(R.id.sourceText)
         translatedText = findViewById(R.id.translatedText)
         understandingHint = findViewById(R.id.understandingHint)
-        recordArabicButton = findViewById(R.id.recordArabicButton)
-        recordPersianButton = findViewById(R.id.recordPersianButton)
+        sourceLanguageSpinner = findViewById(R.id.sourceLanguageSpinner)
+        targetLanguageSpinner = findViewById(R.id.targetLanguageSpinner)
+        recordVoiceButton = findViewById(R.id.recordVoiceButton)
         stopRecordButton = findViewById(R.id.stopRecordButton)
-        arToFaButton = findViewById(R.id.arToFaButton)
-        faToArButton = findViewById(R.id.faToArButton)
+        translateButton = findViewById(R.id.translateButton)
+        swapButton = findViewById(R.id.swapButton)
         speakButton = findViewById(R.id.speakButton)
         usdIqdRate = findViewById(R.id.usdIqdRate)
-        usdTomanRate = findViewById(R.id.usdTomanRate)
+        usdIrrRate = findViewById(R.id.usdIrrRate)
         moneyAmount = findViewById(R.id.moneyAmount)
         moneyResult = findViewById(R.id.moneyResult)
         noteDenomination = findViewById(R.id.noteDenomination)
         ocrResult = findViewById(R.id.ocrResult)
-        currencyImage = findViewById(R.id.currencyImage)
+        priceImage = findViewById(R.id.priceImage)
     }
 
+    private fun setupLanguageSelectors() {
+        val adapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, languages.map { it.label }).also {
+            it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        }
+        sourceLanguageSpinner.adapter = adapter
+        targetLanguageSpinner.adapter = adapter
+        sourceLanguageSpinner.setSelection(0)
+        targetLanguageSpinner.setSelection(2)
+    }
+
+    private fun selectedSourceLanguage(): String = languages[sourceLanguageSpinner.selectedItemPosition.coerceIn(0, languages.lastIndex)].code
+    private fun selectedTargetLanguage(): String = languages[targetLanguageSpinner.selectedItemPosition.coerceIn(0, languages.lastIndex)].code
+
     private fun setupActions() {
-        recordArabicButton.setOnClickListener { startVoice(RecordMode.AR_TO_FA) }
-        recordPersianButton.setOnClickListener { startVoice(RecordMode.FA_TO_AR) }
+        recordVoiceButton.setOnClickListener {
+            currentRecordLanguage = selectedSourceLanguage()
+            startVoice(RecordMode.TRANSLATE, currentRecordLanguage)
+        }
         stopRecordButton.setOnClickListener { stopVoiceAndProcess() }
-        arToFaButton.setOnClickListener { translateManual("ar", "fa") }
-        faToArButton.setOnClickListener { translateManual("fa", "ar") }
+        translateButton.setOnClickListener { translateManual() }
+        swapButton.setOnClickListener { swapLanguages() }
         speakButton.setOnClickListener {
             translatedText.text.toString().trim().takeIf { it.isNotEmpty() }?.let { speakLocal(it, lastSpeakLanguage) }
         }
         findViewById<Button>(R.id.saveRatesButton).setOnClickListener { saveRates() }
-        findViewById<Button>(R.id.parseTomanButton).setOnClickListener { calculateMoney("toman") }
         findViewById<Button>(R.id.parseRialButton).setOnClickListener { calculateMoney("rial") }
-        findViewById<Button>(R.id.moneyVoiceFaButton).setOnClickListener { startVoice(RecordMode.MONEY_FA) }
-        findViewById<Button>(R.id.moneyVoiceArButton).setOnClickListener { startVoice(RecordMode.MONEY_AR) }
+        findViewById<Button>(R.id.parseTomanButton).setOnClickListener { calculateMoney("toman") }
+        findViewById<Button>(R.id.parseUsdButton).setOnClickListener { calculateMoney("usd") }
+        findViewById<Button>(R.id.parseIqdButton).setOnClickListener { calculateMoney("iqd") }
+        findViewById<Button>(R.id.moneyVoiceFaButton).setOnClickListener { startVoice(RecordMode.MONEY, "fa") }
+        findViewById<Button>(R.id.moneyVoiceArButton).setOnClickListener { startVoice(RecordMode.MONEY, "ar") }
+        findViewById<Button>(R.id.moneyVoiceEnButton).setOnClickListener { startVoice(RecordMode.MONEY, "en") }
         findViewById<Button>(R.id.cameraButton).setOnClickListener { openCamera() }
         findViewById<Button>(R.id.galleryButton).setOnClickListener { openGallery() }
         findViewById<Button>(R.id.banknoteCountButton).setOnClickListener { calculateBanknoteCount() }
     }
 
-    private fun setupTts() {
-        tts = TextToSpeech(this) { status ->
-            ttsReady = status == TextToSpeech.SUCCESS
+    private fun swapLanguages() {
+        val s = sourceLanguageSpinner.selectedItemPosition
+        val t = targetLanguageSpinner.selectedItemPosition
+        sourceLanguageSpinner.setSelection(t)
+        targetLanguageSpinner.setSelection(s)
+        val src = sourceText.text.toString()
+        val dst = translatedText.text.toString()
+        if (dst.isNotBlank()) {
+            sourceText.setText(dst)
+            translatedText.setText(src)
         }
+    }
+
+    private fun setupTts() {
+        tts = TextToSpeech(this) { status -> ttsReady = status == TextToSpeech.SUCCESS }
     }
 
     private fun prepareOfflineEngines() {
         scope.launch {
             try {
-                statusText.text = "أول تشغيل: تجهيز نماذج العمل المحلي…"
+                statusText.text = "جاري تجهيز نماذج الترجمة والصوت المحلية…"
+                progressBar.visibility = View.VISIBLE
                 progressBar.progress = 2
                 val modelFile = File(filesDir, "models/qwen.gguf")
                 withContext(Dispatchers.IO) {
-                    copyLargeAsset("models/qwen.gguf", modelFile, 5, 72)
+                    copyLargeAsset("models/qwen.gguf", modelFile, 5, 70)
                     OcrEngine.prepare(this@MainActivity)
                 }
-                progressBar.progress = 76
+                progressBar.progress = 75
                 statusText.text = "تحميل محرك الترجمة…"
                 llamaModel = Llama.loadModel(
                     modelFile.absolutePath,
                     LlamaConfig(
-                        contextSize = 1024,
+                        contextSize = 1536,
                         threads = min(4, Runtime.getRuntime().availableProcessors().coerceAtLeast(1)),
-                        temperature = 0.1f,
-                        topP = 0.85f,
+                        temperature = 0.05f,
+                        topP = 0.82f,
                         topK = 20,
                         seed = 7
                     )
                 )
-                progressBar.progress = 88
-                statusText.text = "تحميل التعرف الصوتي المحلي…"
-                whisperModel = Whisper.loadModelFromAsset(this@MainActivity, "models/ggml-tiny.bin")
+                progressBar.progress = 86
+                statusText.text = "تحميل Whisper Small للتعرف على الكلام…"
+                whisperModel = Whisper.loadModelFromAsset(this@MainActivity, "models/ggml-small.bin")
                 progressBar.progress = 100
                 modelsReady = true
                 setModelControlsEnabled(true)
-                statusText.text = "جاهز — الترجمة والصوت يعملان محليًا بدون إنترنت."
+                statusText.text = "جاهز — عربي • English • فارسی — يعمل بدون إنترنت"
             } catch (e: Exception) {
                 modelsReady = false
                 setModelControlsEnabled(false)
                 progressBar.visibility = View.GONE
-                statusText.text = "تعذر تجهيز نموذج محلي: ${e.message ?: e.javaClass.simpleName}. حساب النقود اليدوي ما زال يعمل."
+                statusText.text = "تعذر تجهيز النموذج المحلي: ${e.message ?: e.javaClass.simpleName}. تحويل العملات اليدوي ما زال يعمل."
             }
         }
     }
@@ -187,13 +228,14 @@ class MainActivity : Activity() {
 
     private fun setModelControlsEnabled(enabled: Boolean) {
         listOf(
-            recordArabicButton, recordPersianButton, arToFaButton, faToArButton, speakButton,
+            recordVoiceButton, translateButton, swapButton, speakButton,
             findViewById<Button>(R.id.moneyVoiceFaButton), findViewById<Button>(R.id.moneyVoiceArButton),
-            findViewById<Button>(R.id.cameraButton), findViewById<Button>(R.id.galleryButton)
+            findViewById<Button>(R.id.moneyVoiceEnButton), findViewById<Button>(R.id.cameraButton),
+            findViewById<Button>(R.id.galleryButton)
         ).forEach { it.isEnabled = enabled }
     }
 
-    private fun startVoice(mode: RecordMode) {
+    private fun startVoice(mode: RecordMode, language: String) {
         if (!modelsReady) return toast("انتظر حتى يكتمل تجهيز النماذج المحلية")
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), REQ_AUDIO_PERMISSION)
@@ -201,17 +243,20 @@ class MainActivity : Activity() {
         }
         if (recorder?.isRecording() == true) return
         recordMode = mode
+        currentRecordLanguage = language
         val wav = File(cacheDir, "speech_${System.currentTimeMillis()}.wav")
         try {
             recorder = WavRecorder(wav).also { it.start() }
             stopRecordButton.isEnabled = true
-            recordArabicButton.isEnabled = false
-            recordPersianButton.isEnabled = false
+            recordVoiceButton.isEnabled = false
             findViewById<Button>(R.id.moneyVoiceFaButton).isEnabled = false
             findViewById<Button>(R.id.moneyVoiceArButton).isEnabled = false
-            statusText.text = if (mode == RecordMode.AR_TO_FA || mode == RecordMode.MONEY_AR)
-                "أسمع العربية الآن… اضغط إيقاف عند الانتهاء."
-            else "در حال شنیدن فارسی… بعد از پایان، توقف را بزنید."
+            findViewById<Button>(R.id.moneyVoiceEnButton).isEnabled = false
+            statusText.text = when (language) {
+                "fa" -> "در حال شنیدن… بعد از پایان، توقف را بزنید."
+                "en" -> "Listening… tap Stop when you finish."
+                else -> "أسمعك الآن… اضغط إيقاف عند الانتهاء."
+            }
         } catch (e: Exception) {
             recorder = null
             recordMode = RecordMode.NONE
@@ -228,38 +273,38 @@ class MainActivity : Activity() {
         stopRecordButton.isEnabled = false
         setModelControlsEnabled(modelsReady)
         if (!file.exists() || file.length() < 1000L) {
-            statusText.text = "لم يصل صوت كافٍ. حاول مرة أخرى وتحدث بوضوح."
+            askToRepeat(currentRecordLanguage)
             return
         }
         scope.launch {
-            transcribeAndProcess(file, mode)
+            transcribeAndProcess(file, mode, currentRecordLanguage)
             file.delete()
         }
     }
 
-    private suspend fun transcribeAndProcess(audioFile: File, mode: RecordMode) {
+    private suspend fun transcribeAndProcess(audioFile: File, mode: RecordMode, language: String) {
         val model = whisperModel ?: return
         try {
             statusText.text = "تحويل الصوت إلى نص محليًا…"
-            val lang = if (mode == RecordMode.AR_TO_FA || mode == RecordMode.MONEY_AR) "ar" else "fa"
             val result = Whisper.transcribe(
                 model,
                 audioFile.absolutePath,
-                WhisperConfig(language = lang, translate = false, threads = min(4, Runtime.getRuntime().availableProcessors().coerceAtLeast(1)))
+                WhisperConfig(language = language, translate = false, threads = min(4, Runtime.getRuntime().availableProcessors().coerceAtLeast(1)))
             )
             val text = result.text.trim()
-            if (text.length < 2 || text.contains("[BLANK", ignoreCase = true)) {
-                understandingHint.text = "🔴 لم أفهم الكلام بوضوح. أعد نطقه ببطء أو اكتبه يدويًا."
-                statusText.text = "لم أفهم الصوت بوضوح."
+            if (isUnclearSpeech(text)) {
+                askToRepeat(language)
                 return
             }
-            understandingHint.text = if (text.length < 5)
-                "🟡 الكلام قصير؛ تحقق من الكلمة قبل الاعتماد على الترجمة."
-            else "🟢 تم التعرف على الكلام. يمكنك تعديل أي كلمة قبل إعادة الترجمة."
+            understandingHint.text = if (text.length < 6)
+                "🟡 الكلام قصير؛ راجع الكلمة قبل الاعتماد عليها."
+            else "🟢 تم فهم الكلام. الترجمة ستبدأ مباشرة."
             when (mode) {
-                RecordMode.AR_TO_FA -> { sourceText.setText(text); translateText(text, "ar", "fa", true) }
-                RecordMode.FA_TO_AR -> { sourceText.setText(text); translateText(text, "fa", "ar", true) }
-                RecordMode.MONEY_AR, RecordMode.MONEY_FA -> {
+                RecordMode.TRANSLATE -> {
+                    sourceText.setText(text)
+                    translateText(text, selectedSourceLanguage(), selectedTargetLanguage(), true)
+                }
+                RecordMode.MONEY -> {
                     moneyAmount.setText(text)
                     calculateMoney(MoneyUtils.detectCurrency(text))
                     statusText.text = "تمت قراءة المبلغ من الصوت."
@@ -273,23 +318,46 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun translateManual(sourceLang: String, targetLang: String) {
+    private fun isUnclearSpeech(text: String): Boolean {
+        if (text.length < 2) return true
+        val lower = text.lowercase()
+        if (lower.contains("[blank") || lower.contains("[noise") || lower.contains("[silence")) return true
+        return text.count { it.isLetterOrDigit() } < 2
+    }
+
+    private fun askToRepeat(language: String) {
+        val message = when (language) {
+            "fa" -> "واضح نشنیدم. لطفاً دوباره آرام و واضح صحبت کنید."
+            "en" -> "I didn't understand clearly. Please say it again slowly and clearly."
+            else -> "ما فهمت الكلام بوضوح. رجاءً أعد الكلام ببطء ووضوح."
+        }
+        understandingHint.text = "🔴 $message"
+        statusText.text = message
+        speakLocal(message, language)
+    }
+
+    private fun translateManual() {
         val text = sourceText.text.toString().trim()
         if (text.isEmpty()) return toast("اكتب أو سجل الكلام أولًا")
-        scope.launch { translateText(text, sourceLang, targetLang, false) }
+        scope.launch { translateText(text, selectedSourceLanguage(), selectedTargetLanguage(), false) }
     }
 
     private suspend fun translateText(text: String, sourceLang: String, targetLang: String, autoSpeak: Boolean) {
+        if (sourceLang == targetLang) {
+            translatedText.setText(text)
+            lastSpeakLanguage = targetLang
+            if (autoSpeak) speakLocal(text, targetLang)
+            return
+        }
         val model = llamaModel ?: return
         try {
             statusText.text = "جاري الترجمة على الهاتف…"
-            val systemPrompt = if (sourceLang == "ar" && targetLang == "fa") {
-                "You are an offline Arabic-to-Persian translator. Translate Iraqi colloquial Arabic and Modern Standard Arabic into natural everyday Persian. Understand Iraqi slang such as ماكو, شكد, وين, هسه, اريد, خوش. Preserve names, numbers and currency values. Output ONLY the Persian translation, no labels or explanation."
-            } else {
-                "You are an offline Persian-to-Arabic translator. Translate everyday spoken Persian into clear Iraqi Arabic. Preserve names, numbers and currency values. Output ONLY the Arabic translation, no labels or explanation."
-            }
-            val result = Llama.complete(model, text, systemPrompt = systemPrompt, maxTokens = 160)
-            val cleaned = result.text.trim().removePrefix("Translation:").removePrefix("الترجمة:").removePrefix("ترجمه:").trim().trim('"', '\'', '«', '»')
+            val result = Llama.complete(model, text, systemPrompt = translationPrompt(sourceLang, targetLang), maxTokens = 220)
+            val cleaned = result.text.trim()
+                .removePrefix("Translation:")
+                .removePrefix("الترجمة:")
+                .removePrefix("ترجمه:")
+                .trim().trim('"', '\'', '«', '»')
             if (cleaned.isBlank()) {
                 translatedText.setText("لم أستطع تكوين ترجمة واضحة. صحح النص أو أعد نطق الجملة.")
                 understandingHint.text = "🟡 الترجمة غير مؤكدة."
@@ -304,48 +372,57 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun translationPrompt(source: String, target: String): String {
+        val sourceName = when (source) { "ar" -> "Arabic (including Iraqi dialect)"; "fa" -> "Persian"; else -> "English" }
+        val targetName = when (target) { "ar" -> "clear natural Arabic, preferring understandable Iraqi wording when conversational"; "fa" -> "natural everyday Persian"; else -> "natural English" }
+        return "You are a high-accuracy offline translator. Translate from $sourceName to $targetName. Preserve names, numbers, money values, units and meaning. Understand Iraqi colloquial Arabic words such as ماكو, شكد, وين, هسه, اريد, خوش. Do not explain, summarize or add information. Output ONLY the translation."
+    }
+
     private fun speakLocal(text: String, language: String) {
-        if (!ttsReady) return toast("محرك النطق المحلي غير جاهز")
+        if (!ttsReady) return
         val engine = tts ?: return
-        val locale = if (language == "fa") Locale("fa", "IR") else Locale("ar", "IQ")
-        engine.language = locale
-        val offlineVoice = engine.voices?.firstOrNull {
-            it.locale.language == locale.language && !it.isNetworkConnectionRequired
+        val locale = when (language) {
+            "fa" -> Locale("fa", "IR")
+            "en" -> Locale.US
+            else -> Locale("ar", "IQ")
         }
+        engine.language = locale
+        val offlineVoice = engine.voices?.firstOrNull { it.locale.language == locale.language && !it.isNetworkConnectionRequired }
         if (offlineVoice == null) {
-            statusText.text = "لا يوجد صوت ${if (language == "fa") "فارسي" else "عربي"} أوفلاين مثبت على الهاتف. الترجمة النصية تعمل."
+            statusText.text = "لا يوجد صوت أوفلاين مثبت لهذه اللغة على الهاتف. الترجمة النصية تعمل."
             return
         }
         engine.voice = offlineVoice
-        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "translation")
+        engine.speak(text, TextToSpeech.QUEUE_FLUSH, null, "offline_translation")
     }
 
     private fun loadSavedRates() {
         usdIqdRate.setText(prefs.getString("usd_iqd", "") ?: "")
-        usdTomanRate.setText(prefs.getString("usd_toman", "") ?: "")
+        usdIrrRate.setText(prefs.getString("usd_irr", "") ?: "")
     }
 
     private fun saveRates() {
         val iqd = parseRate(usdIqdRate)
-        val toman = parseRate(usdTomanRate)
-        if (iqd == null || toman == null || iqd <= 0 || toman <= 0) return toast("أدخل سعر الدولار بالدينار والتومان بشكل صحيح")
-        prefs.edit().putString("usd_iqd", iqd.toString()).putString("usd_toman", toman.toString()).apply()
+        val irr = parseRate(usdIrrRate)
+        if (iqd == null || irr == null || iqd <= 0 || irr <= 0) return toast("أدخل سعر الدولار بالدينار والريال بشكل صحيح")
+        prefs.edit().putString("usd_iqd", iqd.toString()).putString("usd_irr", irr.toString()).apply()
         toast("تم حفظ سعر الصرف محليًا")
+        calculateMoney(MoneyUtils.detectCurrency(moneyAmount.text.toString()))
     }
 
     private fun parseRate(field: EditText): Double? = MoneyUtils.normalizeDigits(field.text.toString()).replace(",", "").toDoubleOrNull()
 
     private fun getRates(): MoneyUtils.Rates? {
         val iqd = parseRate(usdIqdRate)
-        val toman = parseRate(usdTomanRate)
-        return if (iqd != null && toman != null && iqd > 0 && toman > 0) MoneyUtils.Rates(iqd, toman) else null
+        val irr = parseRate(usdIrrRate)
+        return if (iqd != null && irr != null && iqd > 0 && irr > 0) MoneyUtils.Rates(iqd, irr) else null
     }
 
     private fun calculateMoney(forcedCurrency: String) {
         val raw = moneyAmount.text.toString().trim()
         val amount = MoneyUtils.parseAmount(raw)
         if (amount == null) {
-            moneyResult.text = "لم أفهم المبلغ. جرّب كتابته بالأرقام مثل: 200000 تومان."
+            moneyResult.text = "لم أفهم المبلغ. اكتبه بالأرقام مثل: 25000000 ريال."
             return
         }
         val rates = getRates()
@@ -353,14 +430,10 @@ class MainActivity : Activity() {
             moneyResult.text = "أدخل سعر الصرف اليدوي واحفظه أولًا.\nالمبلغ المقروء: ${DecimalFormat("#,##0").format(amount)}"
             return
         }
-        val currency = when {
-            raw.contains("ریال") || raw.contains("ريال") -> "rial"
-            raw.contains("تومان") || raw.contains("تومن") -> "toman"
-            else -> forcedCurrency
-        }
+        val currency = if (MoneyUtils.hasExplicitCurrency(raw)) MoneyUtils.detectCurrency(raw) else forcedCurrency
         val conversion = MoneyUtils.convert(amount.toDouble(), currency, rates)
         moneyResult.text = if (conversion == null) "تعذر الحساب. تحقق من أسعار الصرف." else
-            "المبلغ المقروء: ${DecimalFormat("#,##0").format(amount)} ${currencyLabel(currency)}\n\n${MoneyUtils.formatConversion(conversion)}\n\nالسعر المستخدم:\n1$ = ${DecimalFormat("#,##0.##").format(rates.usdToIqd)} د.ع\n1$ = ${DecimalFormat("#,##0.##").format(rates.usdToToman)} تومان"
+            "المبلغ: ${DecimalFormat("#,##0").format(amount)} ${currencyLabel(currency)}\n\n${MoneyUtils.formatConversion(conversion)}\n\nسعر الصرف اليدوي المستخدم:\n1 USD = ${DecimalFormat("#,##0.##").format(rates.usdToIqd)} IQD\n1 USD = ${DecimalFormat("#,##0.##").format(rates.usdToIrr)} IRR"
     }
 
     private fun currencyLabel(c: String): String = when (c) {
@@ -379,7 +452,7 @@ class MainActivity : Activity() {
 
     private fun openGallery() {
         val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*" }
-        startActivityForResult(Intent.createChooser(intent, "اختر صورة العملة"), REQ_GALLERY)
+        startActivityForResult(Intent.createChooser(intent, "اختر صورة السعر"), REQ_GALLERY)
     }
 
     @Deprecated("Compatibility")
@@ -389,14 +462,14 @@ class MainActivity : Activity() {
         when (requestCode) {
             REQ_CAMERA -> {
                 val bitmap = data?.extras?.get("data") as? Bitmap
-                if (bitmap != null) analyzeCurrencyImage(bitmap) else toast("تعذر قراءة صورة الكاميرا")
+                if (bitmap != null) analyzePriceImage(bitmap) else toast("تعذر قراءة صورة الكاميرا")
             }
             REQ_GALLERY -> {
                 val uri = data?.data ?: return
                 try {
                     contentResolver.openInputStream(uri).use { input ->
                         val bitmap = BitmapFactory.decodeStream(input)
-                        if (bitmap != null) analyzeCurrencyImage(scaleForOcr(bitmap))
+                        if (bitmap != null) analyzePriceImage(scaleForOcr(bitmap))
                     }
                 } catch (e: Exception) {
                     ocrResult.text = "تعذر فتح الصورة: ${e.message}"
@@ -412,46 +485,52 @@ class MainActivity : Activity() {
         return Bitmap.createScaledBitmap(bitmap, (bitmap.width * ratio).toInt(), (bitmap.height * ratio).toInt(), true)
     }
 
-    private fun analyzeCurrencyImage(bitmap: Bitmap) {
-        currencyImage.setImageBitmap(bitmap)
-        ocrResult.text = "جاري قراءة الورقة محليًا…"
+    private fun analyzePriceImage(bitmap: Bitmap) {
+        priceImage.setImageBitmap(bitmap)
+        ocrResult.text = "جاري قراءة السعر من الصورة محليًا…"
         scope.launch {
             try {
                 val result = withContext(Dispatchers.Default) { OcrEngine.recognize(this@MainActivity, bitmap) }
-                val denomination = MoneyUtils.likelyBanknoteDenomination(result.text)
-                if (denomination == null) {
-                    ocrResult.text = "لم أتعرف على فئة واضحة.\nثقة القراءة: ${result.confidence}%\nالنص المقروء:\n${result.text.ifBlank { "لا يوجد نص واضح" }}\n\nاكتب فئة الورقة يدويًا ثم اضغط حساب عدد الأوراق."
+                val amount = MoneyUtils.parseAmount(result.text)
+                if (amount == null) {
+                    ocrResult.text = "لم أتعرف على سعر واضح.\nثقة القراءة: ${result.confidence}%\nالنص المقروء:\n${result.text.ifBlank { "لا يوجد نص واضح" }}\n\nقرب الكاميرا من السعر وحاول مرة أخرى."
                     return@launch
                 }
-                val detectedCurrency = MoneyUtils.detectCurrency(result.text, true)
-                val noteRial = if (detectedCurrency == "toman") denomination * 10L else denomination
-                noteDenomination.setText(noteRial.toString())
-                val target = targetTomanFromInput()
-                val count = if (target != null) MoneyUtils.banknoteCount(target, noteRial) else "أدخل المبلغ المطلوب في قسم النقود لحساب عدد الأوراق."
-                ocrResult.text = "الفئة المحتملة: ${DecimalFormat("#,##0").format(noteRial)} ريال = ${DecimalFormat("#,##0").format(noteRial / 10)} تومان\nثقة OCR: ${result.confidence}%\n\n$count\n\nالنص المقروء:\n${result.text}"
+                val currency = MoneyUtils.detectCurrency(result.text, defaultRialForBanknote = true)
+                moneyAmount.setText("$amount ${currencyLabel(currency)}")
+                calculateMoney(currency)
+                val targetRial = targetRialFromInput()
+                val noteRial = parseNoteRial()
+                val countMessage = if (targetRial != null && noteRial != null && noteRial > 0) MoneyUtils.banknoteCountRial(targetRial, noteRial)
+                    else "أدخل فئة الورقة التي معك بالريال حتى أحسب عدد الأوراق المطلوبة."
+                ocrResult.text = "السعر المقروء: ${DecimalFormat("#,##0").format(amount)} ${currencyLabel(currency)}\nثقة OCR: ${result.confidence}%\n\n$countMessage\n\nالنص المقروء:\n${result.text}"
             } catch (e: Exception) {
-                ocrResult.text = "تعذر تحليل الصورة: ${e.message ?: e.javaClass.simpleName}\nيمكنك إدخال فئة الورقة يدويًا."
+                ocrResult.text = "تعذر تحليل الصورة: ${e.message ?: e.javaClass.simpleName}\nيمكنك كتابة السعر يدويًا."
             }
         }
     }
 
+    private fun parseNoteRial(): Long? = MoneyUtils.normalizeDigits(noteDenomination.text.toString()).replace(",", "").toLongOrNull()
+
     private fun calculateBanknoteCount() {
-        val noteRial = MoneyUtils.normalizeDigits(noteDenomination.text.toString()).replace(",", "").toLongOrNull()
-        val target = targetTomanFromInput()
+        val noteRial = parseNoteRial()
+        val targetRial = targetRialFromInput()
         ocrResult.text = when {
             noteRial == null || noteRial <= 0 -> "أدخل فئة الورقة بالريال الإيراني أولًا."
-            target == null || target <= 0 -> "أدخل المبلغ المطلوب في قسم النقود أولًا."
-            else -> MoneyUtils.banknoteCount(target, noteRial)
+            targetRial == null || targetRial <= 0 -> "أدخل السعر أو صوّره أولًا."
+            else -> MoneyUtils.banknoteCountRial(targetRial, noteRial)
         }
     }
 
-    private fun targetTomanFromInput(): Long? {
+    private fun targetRialFromInput(): Long? {
         val raw = moneyAmount.text.toString()
         val amount = MoneyUtils.parseAmount(raw) ?: return null
-        return when (MoneyUtils.detectCurrency(raw)) {
-            "rial" -> amount / 10L
-            "usd" -> getRates()?.let { (amount * it.usdToToman).toLong() }
-            "iqd" -> getRates()?.let { ((amount / it.usdToIqd) * it.usdToToman).toLong() }
+        val rates = getRates()
+        return when (MoneyUtils.detectCurrency(raw, defaultRialForBanknote = true)) {
+            "rial" -> amount
+            "toman" -> amount * 10L
+            "usd" -> rates?.let { (amount * it.usdToIrr).toLong() }
+            "iqd" -> rates?.let { ((amount / it.usdToIqd) * it.usdToIrr).toLong() }
             else -> amount
         }
     }
