@@ -14,15 +14,16 @@ object OcrEngine {
         tessdata.mkdirs()
         copyAsset(context, "tessdata/fas.traineddata", File(tessdata, "fas.traineddata"))
         copyAsset(context, "tessdata/ara.traineddata", File(tessdata, "ara.traineddata"))
+        copyAsset(context, "tessdata/eng.traineddata", File(tessdata, "eng.traineddata"))
     }
 
     fun recognize(context: Context, bitmap: Bitmap): Result {
         val dataPath = File(context.filesDir, "tesseract").absolutePath
         val tess = TessBaseAPI()
         return try {
-            if (!tess.init(dataPath, "fas+ara")) {
-                Result("", 0)
-            } else {
+            if (!tess.init(dataPath, "fas+ara+eng")) Result("", 0)
+            else {
+                tess.setPageSegMode(TessBaseAPI.PageSegMode.PSM_AUTO)
                 tess.setImage(bitmap)
                 val text = tess.getUTF8Text()?.trim().orEmpty()
                 val confidence = try { tess.meanConfidence() } catch (_: Exception) { 0 }
