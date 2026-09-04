@@ -1,4 +1,4 @@
-name: Build TriTranslate Offline V2 APK
+name: Build TriTranslate Offline V2.1 APK
 
 on:
   workflow_dispatch:
@@ -56,21 +56,21 @@ jobs:
         run: |
           set -euxo pipefail
           test -f OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk
-          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk
-          unzip -t TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk >/dev/null
-          unzip -l TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk | grep 'assets/models/qwen.gguf'
-          unzip -l TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk | grep 'assets/models/ggml-small.bin'
-          unzip -l TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk | grep 'assets/tessdata/eng.traineddata'
-          sha256sum TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk | tee TriTranslate-Offline-V2.0-AR-EN-FA-arm64.sha256
-          ls -lh TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk
+          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk
+          unzip -t TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk >/dev/null
+          unzip -l TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk | grep 'assets/models/qwen.gguf'
+          unzip -l TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk | grep 'assets/models/ggml-small.bin'
+          unzip -l TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk | grep 'assets/tessdata/eng.traineddata'
+          sha256sum TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk | tee TriTranslate-Offline-V2.1-AR-EN-FA-arm64.sha256
+          ls -lh TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: TriTranslate-Offline-V2.0-AR-EN-FA-arm64
+          name: TriTranslate-Offline-V2.1-AR-EN-FA-arm64
           path: |
-            TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk
-            TriTranslate-Offline-V2.0-AR-EN-FA-arm64.sha256
+            TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk
+            TriTranslate-Offline-V2.1-AR-EN-FA-arm64.sha256
           compression-level: 0
           retention-days: 7
 
@@ -79,13 +79,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG='offline-translator-v2-trilingual-money'
-          NOTES='Offline Arabic + English + Persian translation, Whisper Small speech recognition, repeat prompt when speech is unclear, manual IQD/IRR/USD rates, price OCR, banknote count, and modern UI. Designed by Hadeer Al-Khafaji © 2026.'
+          TAG='offline-translator-v2.1-conversation-camera'
+          NOTES='TriTranslate Offline V2.1: Arabic + English + Persian offline translation, Whisper Small, automatic two-way conversation handoff, repeat prompt for unclear speech, manual IQD/IRR/USD exchange rates, full-resolution price camera, enhanced offline OCR and banknote count. Designed by Hadeer Al-Khafaji © 2026.'
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk TriTranslate-Offline-V2.0-AR-EN-FA-arm64.sha256 --clobber
+            gh release upload "$TAG" TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk TriTranslate-Offline-V2.1-AR-EN-FA-arm64.sha256 --clobber
           else
-            gh release create "$TAG" TriTranslate-Offline-V2.0-AR-EN-FA-arm64.apk TriTranslate-Offline-V2.0-AR-EN-FA-arm64.sha256 \
+            gh release create "$TAG" TriTranslate-Offline-V2.1-AR-EN-FA-arm64.apk TriTranslate-Offline-V2.1-AR-EN-FA-arm64.sha256 \
               --target "$GITHUB_SHA" \
-              --title 'TriTranslate Offline V2.0 — AR EN FA' \
+              --title 'TriTranslate Offline V2.1 — Conversation + Camera' \
               --notes "$NOTES"
           fi
