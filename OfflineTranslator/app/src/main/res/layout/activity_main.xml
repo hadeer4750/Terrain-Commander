@@ -1,0 +1,273 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#F7F7F7">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp"
+        android:layoutDirection="rtl">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="مترجم السفر — عربي ↔ فارسی"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="#111827"
+            android:gravity="center" />
+
+        <TextView
+            android:id="@+id/statusText"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:text="جاري تجهيز النماذج المحلية…"
+            android:textSize="14sp"
+            android:textColor="#4B5563"
+            android:gravity="center" />
+
+        <ProgressBar
+            android:id="@+id/progressBar"
+            style="?android:attr/progressBarStyleHorizontal"
+            android:layout_width="match_parent"
+            android:layout_height="8dp"
+            android:layout_marginTop="8dp"
+            android:max="100"
+            android:progress="0" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:orientation="vertical"
+            android:background="@drawable/section_bg"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="المحادثة والترجمة"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="#111827" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <Button
+                    android:id="@+id/recordArabicButton"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_weight="1"
+                    android:text="🎤 تحدث بالعراقي" />
+
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+
+                <Button
+                    android:id="@+id/recordPersianButton"
+                    android:layout_width="0dp"
+                    android:layout_height="52dp"
+                    android:layout_weight="1"
+                    android:text="🎤 صحبت فارسی" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/stopRecordButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="■ إيقاف التسجيل"
+                android:enabled="false" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="النص الذي فهمه التطبيق"
+                android:textColor="#374151"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/sourceText"
+                android:layout_width="match_parent"
+                android:layout_height="100dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/box_bg"
+                android:gravity="top|start"
+                android:padding="12dp"
+                android:textSize="17sp"
+                android:hint="يمكنك تعديل الكلمة إذا لم يفهمها التطبيق"
+                android:inputType="textMultiLine|textCapSentences" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="8dp">
+
+                <Button
+                    android:id="@+id/arToFaButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="عربي → فارسی" />
+
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+
+                <Button
+                    android:id="@+id/faToArButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:text="فارسی → عربي" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text="الترجمة"
+                android:textColor="#374151"
+                android:textStyle="bold" />
+
+            <EditText
+                android:id="@+id/translatedText"
+                android:layout_width="match_parent"
+                android:layout_height="100dp"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/box_bg"
+                android:gravity="top|start"
+                android:padding="12dp"
+                android:textSize="17sp"
+                android:inputType="textMultiLine"
+                android:focusable="false" />
+
+            <Button
+                android:id="@+id/speakButton"
+                android:layout_width="match_parent"
+                android:layout_height="48dp"
+                android:layout_marginTop="8dp"
+                android:text="🔊 نطق الترجمة" />
+
+            <TextView
+                android:id="@+id/understandingHint"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="إذا كان النص غير واضح، عدّله ثم اضغط الترجمة مرة أخرى."
+                android:textColor="#92400E"
+                android:textSize="13sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:orientation="vertical"
+            android:background="@drawable/section_bg"
+            android:padding="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="وضع النقود — سعر الصرف يدوي"
+                android:textStyle="bold"
+                android:textSize="18sp"
+                android:textColor="#111827" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="1 دولار = كم دينار عراقي؟" android:textColor="#374151" />
+            <EditText android:id="@+id/usdIqdRate" android:layout_width="match_parent" android:layout_height="52dp" android:background="@drawable/box_bg" android:inputType="numberDecimal" android:hint="مثال: 1500" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="1 دولار = كم تومان؟" android:textColor="#374151" />
+            <EditText android:id="@+id/usdTomanRate" android:layout_width="match_parent" android:layout_height="52dp" android:background="@drawable/box_bg" android:inputType="numberDecimal" android:hint="أدخل سعر السوق يدويًا" />
+
+            <Button android:id="@+id/saveRatesButton" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:text="حفظ سعر الصرف على الهاتف" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp" android:text="المبلغ المطلوب" android:textColor="#374151" android:textStyle="bold" />
+            <EditText android:id="@+id/moneyAmount" android:layout_width="match_parent" android:layout_height="52dp" android:background="@drawable/box_bg" android:inputType="text" android:hint="مثال: 200999 تومان أو دویست هزار تومان" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+                <Button android:id="@+id/parseTomanButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="احسب تومان" />
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+                <Button android:id="@+id/parseRialButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="احسب ريال" />
+            </LinearLayout>
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+                <Button android:id="@+id/moneyVoiceFaButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="🎤 مبلغ بالفارسي" />
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+                <Button android:id="@+id/moneyVoiceArButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="🎤 مبلغ بالعربي" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/moneyResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:background="@drawable/box_bg"
+                android:padding="12dp"
+                android:text="النتيجة ستظهر هنا"
+                android:textSize="16sp"
+                android:textColor="#111827" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:orientation="vertical"
+            android:background="@drawable/section_bg"
+            android:padding="12dp">
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:text="تصوير العملة" android:textStyle="bold" android:textSize="18sp" android:textColor="#111827" />
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="6dp" android:text="صوّر الورقة النقدية. التطبيق يحاول قراءة الفئة محليًا ثم يحسب عدد الأوراق بالنسبة للمبلغ المطلوب." android:textSize="13sp" android:textColor="#4B5563" />
+
+            <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:layout_marginTop="8dp">
+                <Button android:id="@+id/cameraButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="📷 صوّر العملة" />
+                <Space android:layout_width="8dp" android:layout_height="1dp" />
+                <Button android:id="@+id/galleryButton" android:layout_width="0dp" android:layout_height="48dp" android:layout_weight="1" android:text="🖼 اختر صورة" />
+            </LinearLayout>
+
+            <ImageView
+                android:id="@+id/currencyImage"
+                android:layout_width="match_parent"
+                android:layout_height="180dp"
+                android:layout_marginTop="8dp"
+                android:background="#E5E7EB"
+                android:scaleType="centerInside"
+                android:contentDescription="صورة العملة" />
+
+            <TextView android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="فئة الورقة بالريال (يمكن تصحيحها يدويًا)" android:textColor="#374151" />
+            <EditText android:id="@+id/noteDenomination" android:layout_width="match_parent" android:layout_height="52dp" android:background="@drawable/box_bg" android:inputType="number" android:hint="مثال: 500000" />
+            <Button android:id="@+id/banknoteCountButton" android:layout_width="match_parent" android:layout_height="48dp" android:layout_marginTop="8dp" android:text="احسب عدد الأوراق من هذه الفئة" />
+
+            <TextView
+                android:id="@+id/ocrResult"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:background="@drawable/box_bg"
+                android:padding="12dp"
+                android:text="لم يتم تحليل صورة بعد"
+                android:textColor="#111827"
+                android:textSize="15sp" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="24dp"
+            android:text="يعمل التطبيق بدون إذن إنترنت. دقة الصوت والصورة تعتمد على وضوح النطق والصورة وقد تحتاج لتصحيح النص يدويًا."
+            android:textSize="12sp"
+            android:textColor="#6B7280"
+            android:gravity="center" />
+    </LinearLayout>
+</ScrollView>
