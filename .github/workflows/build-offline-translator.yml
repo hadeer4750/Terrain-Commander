@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 120
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -37,11 +37,12 @@ jobs:
           set -euxo pipefail
           mkdir -p app/src/main/assets/models app/src/main/assets/tessdata
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/models/qwen.gguf 'https://huggingface.co/Qwen/Qwen2.5-0.5B-Instruct-GGUF/resolve/main/qwen2.5-0.5b-instruct-q4_0.gguf?download=true'
-          curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/models/ggml-tiny.bin 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.bin?download=true'
+          # اختبار دقة أعلى: Whisper Small بدل Tiny. نحفظه بنفس اسم الملف الذي يحمّله التطبيق حاليًا لعزل أثر تغيير نموذج الصوت فقط.
+          curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/models/ggml-tiny.bin 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin?download=true'
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/tessdata/fas.traineddata 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/fas.traineddata'
           curl -L --fail --retry 3 --retry-delay 2 -o app/src/main/assets/tessdata/ara.traineddata 'https://raw.githubusercontent.com/tesseract-ocr/tessdata_fast/main/ara.traineddata'
           test $(stat -c%s app/src/main/assets/models/qwen.gguf) -gt 300000000
-          test $(stat -c%s app/src/main/assets/models/ggml-tiny.bin) -gt 50000000
+          test $(stat -c%s app/src/main/assets/models/ggml-tiny.bin) -gt 400000000
           test $(stat -c%s app/src/main/assets/tessdata/fas.traineddata) -gt 100000
           test $(stat -c%s app/src/main/assets/tessdata/ara.traineddata) -gt 100000
           ls -lh app/src/main/assets/models app/src/main/assets/tessdata
@@ -54,20 +55,20 @@ jobs:
         run: |
           set -euxo pipefail
           test -f OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk
-          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk OfflineTranslator-v1.1-arm64.apk
-          unzip -t OfflineTranslator-v1.1-arm64.apk >/dev/null
-          unzip -l OfflineTranslator-v1.1-arm64.apk | grep 'assets/models/qwen.gguf'
-          unzip -l OfflineTranslator-v1.1-arm64.apk | grep 'assets/models/ggml-tiny.bin'
-          sha256sum OfflineTranslator-v1.1-arm64.apk | tee OfflineTranslator-v1.1-arm64.sha256
-          ls -lh OfflineTranslator-v1.1-arm64.apk
+          cp OfflineTranslator/app/build/outputs/apk/debug/app-debug.apk OfflineTranslator-v1.2-Whisper-Small-arm64.apk
+          unzip -t OfflineTranslator-v1.2-Whisper-Small-arm64.apk >/dev/null
+          unzip -l OfflineTranslator-v1.2-Whisper-Small-arm64.apk | grep 'assets/models/qwen.gguf'
+          unzip -l OfflineTranslator-v1.2-Whisper-Small-arm64.apk | grep 'assets/models/ggml-tiny.bin'
+          sha256sum OfflineTranslator-v1.2-Whisper-Small-arm64.apk | tee OfflineTranslator-v1.2-Whisper-Small-arm64.sha256
+          ls -lh OfflineTranslator-v1.2-Whisper-Small-arm64.apk
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: OfflineTranslator-v1.1-arm64
+          name: OfflineTranslator-v1.2-Whisper-Small-arm64
           path: |
-            OfflineTranslator-v1.1-arm64.apk
-            OfflineTranslator-v1.1-arm64.sha256
+            OfflineTranslator-v1.2-Whisper-Small-arm64.apk
+            OfflineTranslator-v1.2-Whisper-Small-arm64.sha256
           compression-level: 0
           retention-days: 7
 
@@ -76,12 +77,12 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -euxo pipefail
-          TAG='offline-translator-v1.1'
+          TAG='offline-translator-v1.2-whisper-small'
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" OfflineTranslator-v1.1-arm64.apk OfflineTranslator-v1.1-arm64.sha256 --clobber
+            gh release upload "$TAG" OfflineTranslator-v1.2-Whisper-Small-arm64.apk OfflineTranslator-v1.2-Whisper-Small-arm64.sha256 --clobber
           else
-            gh release create "$TAG" OfflineTranslator-v1.1-arm64.apk OfflineTranslator-v1.1-arm64.sha256 \
+            gh release create "$TAG" OfflineTranslator-v1.2-Whisper-Small-arm64.apk OfflineTranslator-v1.2-Whisper-Small-arm64.sha256 \
               --target "$GITHUB_SHA" \
-              --title 'Offline Translator v1.1 — Hadeer Al-Khafaji' \
-              --notes 'Offline Arabic ↔ Persian translator. Programmer: Hadeer Al-Khafaji © 2026.'
+              --title 'Offline Translator v1.2 — Whisper Small Test' \
+              --notes 'Arabic ↔ Persian offline translator test build. Speech recognition upgraded from Whisper Tiny to Whisper Small only; translation engine is unchanged for an isolated accuracy comparison. Programmer: Hadeer Al-Khafaji © 2026.'
           fi
