@@ -1,0 +1,45 @@
+name: Repack Offline Translator APK as ZIP
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - offline-translator-v1
+    paths:
+      - '.github/workflows/repack-offline-translator-zip.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repack:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Download existing v1.3 APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          gh release download offline-translator-v1.3-whisper-small-icon \
+            --repo hadeer4750/Terrain-Commander \
+            --pattern 'OfflineTranslator-v1.3-Whisper-Small-arm64.apk'
+          test -f OfflineTranslator-v1.3-Whisper-Small-arm64.apk
+          ls -lh OfflineTranslator-v1.3-Whisper-Small-arm64.apk
+
+      - name: Create store-only ZIP
+        run: |
+          set -euxo pipefail
+          zip -0 OfflineTranslator-v1.3-Whisper-Small-arm64-NO-COMPRESSION.zip OfflineTranslator-v1.3-Whisper-Small-arm64.apk
+          unzip -t OfflineTranslator-v1.3-Whisper-Small-arm64-NO-COMPRESSION.zip
+          ls -lh OfflineTranslator-v1.3-Whisper-Small-arm64-NO-COMPRESSION.zip
+
+      - name: Upload ZIP to same release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euxo pipefail
+          gh release upload offline-translator-v1.3-whisper-small-icon \
+            OfflineTranslator-v1.3-Whisper-Small-arm64-NO-COMPRESSION.zip \
+            --repo hadeer4750/Terrain-Commander \
+            --clobber
