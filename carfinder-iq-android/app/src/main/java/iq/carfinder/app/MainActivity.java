@@ -68,7 +68,7 @@ public class MainActivity extends Activity {
         root.addView(space(18));
         root.addView(section("👥 كروبات فيسبوك"));
 
-        TextView fbHelp = text("أضف رابط كل كروب أنت مشترك به مرة واحدة. سيظهر زر بحث مباشر لكل كروب باستخدام مواصفات السيارة أعلاه.", 14, false);
+        TextView fbHelp = text("أدخل اسم الكروب أو الصق أي رابط فيسبوك له. الرابط المباشر من نوع facebook.com/groups/... يعطي أدق بحث داخل الكروب، لكن التطبيق لن يرفض روابط المشاركة أو اسم الكروب.", 14, false);
         root.addView(fbHelp);
 
         Button add = button("➕ إضافة كروب فيسبوك", Color.rgb(36,107,253));
@@ -84,7 +84,7 @@ public class MainActivity extends Activity {
         renderGroups();
 
         root.addView(space(14));
-        TextView warning = text("مهم: فيسبوك لا يتيح للتطبيق قراءة قائمة كل الكروبات الخاصة بحسابك تلقائيًا. أضف روابط الكروبات مرة واحدة، ثم البحث يعمل داخل ما تستطيع أنت رؤيته.", 13, false);
+        TextView warning = text("ملاحظة: اسم الكروب ورابط المشاركة أصبحا مقبولين. للحصول على بحث داخل كروب محدد مباشرة، الأفضل لصق رابط الكروب النهائي الذي يحتوي /groups/. فيسبوك لا يسمح للتطبيق بقراءة قائمة كل كروبات حسابك تلقائيًا.", 13, false);
         warning.setPadding(dp(12),dp(12),dp(12),dp(12));
         warning.setBackgroundColor(Color.rgb(255,248,223));
         root.addView(warning);
@@ -146,36 +146,69 @@ public class MainActivity extends Activity {
     private void addGroupDialog() {
         LinearLayout body = box(LinearLayout.VERTICAL);
         body.setPadding(dp(18),0,dp(18),0);
-        EditText name = input("اسم الكروب - اختياري", false);
-        EditText url = input("رابط الكروب", false);
+        EditText name = input("اسم الكروب", false);
+        EditText url = input("رابط الكروب أو رابط المشاركة - اختياري", false);
         body.addView(name); body.addView(url);
 
         new AlertDialog.Builder(this)
             .setTitle("إضافة كروب فيسبوك")
             .setView(body)
             .setPositiveButton("حفظ", (d,w) -> {
-                String u = normalizeGroup(url.getText().toString());
-                if (u == null) {
-                    Toast.makeText(this, "رابط الكروب غير صحيح", Toast.LENGTH_LONG).show();
+                String n = name.getText().toString().trim();
+                String raw = url.getText().toString().trim();
+
+                if (n.isEmpty() && raw.isEmpty()) {
+                    Toast.makeText(this, "اكتب اسم الكروب أو الصق رابطه", Toast.LENGTH_LONG).show();
                     return;
                 }
-                String n = name.getText().toString().trim();
+
+                String u = normalizeGroup(raw);
+                if (n.isEmpty()) n = groupLabelFromUrl(u);
                 if (n.isEmpty()) n = "كروب فيسبوك";
+
                 String item = n + "|||" + u;
                 if (!groups.contains(item)) groups.add(item);
-                saveGroups(); renderGroups();
+                saveGroups();
+                renderGroups();
+                Toast.makeText(this, "تم حفظ الكروب", Toast.LENGTH_SHORT).show();
             })
             .setNegativeButton("إلغاء", null)
             .show();
     }
 
     private String normalizeGroup(String raw) {
-        if (raw == null) return null;
+        if (raw == null) return "";
         String u = raw.trim();
-        if (!u.startsWith("http")) u = "https://" + u;
+        if (u.isEmpty()) return "";
+
+        if (!u.startsWith("http://") && !u.startsWith("https://")) {
+            if (u.contains("facebook.com") || u.contains("fb.com")) u = "https://" + u;
+            else return "";
+        }
+
+        // تقبل كل صيغ فيسبوك بدل رفض روابط المشاركة أو m.facebook.com
+        if (u.contains("facebook.com") || u.contains("fb.com")) return u;
+        return u; // لا نرفض الإدخال؛ سيستخدم كمرجع محفوظ
+    }
+
+    private String groupLabelFromUrl(String u) {
+        if (u == null || u.isEmpty()) return "";
         Matcher m = Pattern.compile("facebook\\.com/groups/([^/?#]+)", Pattern.CASE_INSENSITIVE).matcher(u);
-        if (!m.find()) return null;
-        return "https://www.facebook.com/groups/" + m.group(1);
+        if (m.find()) return m.group(1);
+        return "كروب فيسبوك";
+    }
+
+    private boolean isDirectGroupUrl(String u) {
+        if (u == null) return false;
+        return Pattern.compile("facebook\\.com/groups/([^/?#]+)", Pattern.CASE_INSENSITIVE).matcher(u).find();
+    }
+
+    private String directGroupSearchUrl(String u, String q) {
+        Matcher m = Pattern.compile("facebook\\.com/groups/([^/?#]+)", Pattern.CASE_INSENSITIVE).matcher(u);
+        if (m.find()) {
+            return "https://www.facebook.com/groups/" + m.group(1) + "/search/?q=" + enc(q);
+        }
+        return "";
     }
 
     private void renderGroups() {
@@ -199,7 +232,16 @@ public class MainActivity extends Activity {
 
             LinearLayout row=box(LinearLayout.HORIZONTAL);
             Button search=button("🔎 بحث داخل الكروب", Color.rgb(36,107,253));
-            search.setOnClickListener(v -> open(u + "/search/?q=" + enc(query())));
+            search.setOnClickListener(v -> {
+                String q = query();
+                if (isDirectGroupUrl(u)) {
+                    open(directGroupSearchUrl(u, q));
+                } else {
+                    // رابط مشاركة أو اسم فقط: نبحث باسم الكروب + مواصفات السيارة في فيسبوك
+                    String combined = n + " " + q;
+                    open("https://www.facebook.com/search/groups/?q=" + enc(combined));
+                }
+            });
             Button del=button("حذف", Color.rgb(185,55,55));
             del.setOnClickListener(v -> { groups.remove(idx); saveGroups(); renderGroups(); });
             row.addView(search, weight()); row.addView(spaceW(8)); row.addView(del);
