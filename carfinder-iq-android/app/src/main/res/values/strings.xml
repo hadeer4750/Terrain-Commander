@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">CarFinder IQ</string>
+    <string name="facebook_capture_desc">يساعد CarFinder IQ على قراءة نتائج البحث الظاهرة داخل تطبيق Facebook أثناء تشغيل بحث السيارة. لا يقرأ كلمات المرور ولا يعمل خارج Facebook.</string>
+</resources>
