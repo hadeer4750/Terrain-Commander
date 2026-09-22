@@ -4,42 +4,29 @@ import android.app.*;
 import android.os.Bundle;
 import android.content.*;
 import android.graphics.Color;
-import android.net.Uri;
 import android.text.InputType;
 import android.view.*;
 import android.widget.*;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
-import java.util.regex.*;
 
 public class MainActivity extends Activity {
     private EditText make, model, yearFrom, yearTo, priceTo;
     private Spinner city;
-    private LinearLayout groupsBox;
     private SharedPreferences prefs;
-    private final ArrayList<String> groups = new ArrayList<>();
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         prefs = getSharedPreferences("carfinder_iq", MODE_PRIVATE);
-        loadGroups();
 
         ScrollView scroll = new ScrollView(this);
         LinearLayout root = box(LinearLayout.VERTICAL);
         root.setPadding(dp(16), dp(18), dp(16), dp(28));
         scroll.addView(root);
 
-        TextView title = text("🚘 CarFinder IQ", 25, true);
+        TextView title = text("🚘 CarFinder IQ", 26, true);
         title.setTextColor(Color.rgb(12,122,101));
         root.addView(title);
-        root.addView(text("بحث السيارات في العراق + مجموعات فيسبوك", 14, false));
-        root.addView(space(12));
-
-        TextView note = text("✅ تم إلغاء عدّاد المسافة نهائيًا. التطبيق لا يخزن كلمة مرور فيسبوك، ويستخدم حسابك المسجّل على الهاتف لفتح البحث داخل الكروبات.", 14, false);
-        note.setPadding(dp(12),dp(12),dp(12),dp(12));
-        note.setBackgroundColor(Color.rgb(236,250,245));
-        root.addView(note);
+        root.addView(text("بحث واحد في iQ Cars + السوق المفتوح + كروبات فيسبوك", 14, false));
         root.addView(space(14));
 
         root.addView(section("مواصفات السيارة"));
@@ -47,67 +34,52 @@ public class MainActivity extends Activity {
         model = input("الموديل - مثال Terrain", false); root.addView(model);
 
         LinearLayout years = box(LinearLayout.HORIZONTAL);
-        yearFrom = input("السنة من", true); yearTo = input("السنة إلى", true);
-        years.addView(yearFrom, weight()); years.addView(spaceW(8)); years.addView(yearTo, weight());
+        yearFrom = input("السنة من", true);
+        yearTo = input("السنة إلى", true);
+        years.addView(yearFrom, weight());
+        years.addView(spaceW(8));
+        years.addView(yearTo, weight());
         root.addView(years);
 
-        priceTo = input("أعلى سعر بالدولار - اختياري", true); root.addView(priceTo);
+        priceTo = input("أعلى سعر بالدولار - اختياري", true);
+        root.addView(priceTo);
+
         city = new Spinner(this);
         String[] cities = {"كل العراق","البصرة","بغداد","النجف","كربلاء","أربيل","السليمانية","ذي قار","ميسان","واسط"};
         city.setAdapter(new ArrayAdapter<>(this, android.R.layout.simple_spinner_dropdown_item, cities));
         root.addView(city, full());
 
-        Button iq = button("🔎 ابحث في iQ Cars", Color.rgb(12,122,101));
-        iq.setOnClickListener(v -> searchSite("iqcars.net"));
-        root.addView(iq, full());
-
-        Button os = button("🔎 ابحث في السوق المفتوح", Color.rgb(36,107,253));
-        os.setOnClickListener(v -> searchSite("iq.opensooq.com"));
-        root.addView(os, full());
-
-        root.addView(space(18));
-        root.addView(section("👥 كروبات فيسبوك"));
-
-        TextView fbHelp = text("أدخل اسم الكروب أو الصق أي رابط فيسبوك له. الرابط المباشر من نوع facebook.com/groups/... يعطي أدق بحث داخل الكروب، لكن التطبيق لن يرفض روابط المشاركة أو اسم الكروب.", 14, false);
-        root.addView(fbHelp);
-
-        Button add = button("➕ إضافة كروب فيسبوك", Color.rgb(36,107,253));
-        add.setOnClickListener(v -> addGroupDialog());
-        root.addView(add, full());
-
-        Button copy = button("📋 نسخ كلمات البحث", Color.rgb(90,105,125));
-        copy.setOnClickListener(v -> copyQuery());
-        root.addView(copy, full());
-
-        groupsBox = box(LinearLayout.VERTICAL);
-        root.addView(groupsBox, full());
-        renderGroups();
-
         root.addView(space(14));
-        TextView warning = text("ملاحظة: اسم الكروب ورابط المشاركة أصبحا مقبولين. للحصول على بحث داخل كروب محدد مباشرة، الأفضل لصق رابط الكروب النهائي الذي يحتوي /groups/. فيسبوك لا يسمح للتطبيق بقراءة قائمة كل كروبات حسابك تلقائيًا.", 13, false);
-        warning.setPadding(dp(12),dp(12),dp(12),dp(12));
-        warning.setBackgroundColor(Color.rgb(255,248,223));
-        root.addView(warning);
+        Button login = button("🔐 ربط حساب Facebook", Color.rgb(24,119,242));
+        login.setOnClickListener(v -> startActivity(new Intent(this, FacebookLoginActivity.class)));
+        root.addView(login, full());
+
+        TextView loginHelp = text("سجّل الدخول داخل التطبيق مرة واحدة. التطبيق لا يطلب كلمة السر منك ولا يرفع جلسة Facebook إلى خادم خارجي.", 13, false);
+        loginHelp.setPadding(dp(6),dp(8),dp(6),dp(12));
+        root.addView(loginHelp);
+
+        Button all = button("🔎 ابحث في الجميع", Color.rgb(12,122,101));
+        all.setTextSize(18);
+        all.setOnClickListener(v -> {
+            String q = query();
+            if (q.trim().isEmpty()) {
+                Toast.makeText(this, "اكتب الشركة أو الموديل أولاً", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Intent i = new Intent(this, ResultsActivity.class);
+            i.putExtra("query", q);
+            startActivity(i);
+        });
+        root.addView(all, full());
+
+        TextView note = text("في تبويب Facebook سيقرأ التطبيق تلقائيًا قائمة الكروبات التي أنت عضو فيها ثم يبحث في المنشورات التي يحق لحسابك رؤيتها. الفحص قد يستغرق وقتًا إذا كان حسابك مشتركًا في كروبات كثيرة.", 13, false);
+        note.setPadding(dp(12),dp(14),dp(12),dp(14));
+        note.setBackgroundColor(Color.rgb(236,250,245));
+        root.addView(space(12));
+        root.addView(note);
 
         restoreSearch();
         setContentView(scroll);
-    }
-
-    private TextView section(String s) {
-        TextView t = text(s, 19, true);
-        t.setPadding(0, dp(4), 0, dp(8));
-        return t;
-    }
-
-    private EditText input(String hint, boolean numeric) {
-        EditText e = new EditText(this);
-        e.setHint(hint);
-        e.setTextSize(16);
-        e.setPadding(dp(12), dp(10), dp(12), dp(10));
-        if (numeric) e.setInputType(InputType.TYPE_CLASS_NUMBER);
-        e.setSingleLine(true);
-        e.setLayoutParams(full());
-        return e;
     }
 
     private String query() {
@@ -131,147 +103,6 @@ public class MainActivity extends Activity {
         if (!s.isEmpty()) q.add(s);
     }
 
-    private void searchSite(String domain) {
-        String q = "site:" + domain + " " + query();
-        open("https://www.google.com/search?q=" + enc(q));
-    }
-
-    private void copyQuery() {
-        String q = query();
-        ClipboardManager cm = (ClipboardManager)getSystemService(CLIPBOARD_SERVICE);
-        cm.setPrimaryClip(ClipData.newPlainText("CarFinder IQ", q));
-        Toast.makeText(this, "تم نسخ: " + q, Toast.LENGTH_SHORT).show();
-    }
-
-    private void addGroupDialog() {
-        LinearLayout body = box(LinearLayout.VERTICAL);
-        body.setPadding(dp(18),0,dp(18),0);
-        EditText name = input("اسم الكروب", false);
-        EditText url = input("رابط الكروب أو رابط المشاركة - اختياري", false);
-        body.addView(name); body.addView(url);
-
-        new AlertDialog.Builder(this)
-            .setTitle("إضافة كروب فيسبوك")
-            .setView(body)
-            .setPositiveButton("حفظ", (d,w) -> {
-                String n = name.getText().toString().trim();
-                String raw = url.getText().toString().trim();
-
-                if (n.isEmpty() && raw.isEmpty()) {
-                    Toast.makeText(this, "اكتب اسم الكروب أو الصق رابطه", Toast.LENGTH_LONG).show();
-                    return;
-                }
-
-                String u = normalizeGroup(raw);
-                if (n.isEmpty()) n = groupLabelFromUrl(u);
-                if (n.isEmpty()) n = "كروب فيسبوك";
-
-                String item = n + "|||" + u;
-                if (!groups.contains(item)) groups.add(item);
-                saveGroups();
-                renderGroups();
-                Toast.makeText(this, "تم حفظ الكروب", Toast.LENGTH_SHORT).show();
-            })
-            .setNegativeButton("إلغاء", null)
-            .show();
-    }
-
-    private String normalizeGroup(String raw) {
-        if (raw == null) return "";
-        String u = raw.trim();
-        if (u.isEmpty()) return "";
-
-        if (!u.startsWith("http://") && !u.startsWith("https://")) {
-            if (u.contains("facebook.com") || u.contains("fb.com")) u = "https://" + u;
-            else return "";
-        }
-
-        // تقبل كل صيغ فيسبوك بدل رفض روابط المشاركة أو m.facebook.com
-        if (u.contains("facebook.com") || u.contains("fb.com")) return u;
-        return u; // لا نرفض الإدخال؛ سيستخدم كمرجع محفوظ
-    }
-
-    private String groupLabelFromUrl(String u) {
-        if (u == null || u.isEmpty()) return "";
-        Matcher m = Pattern.compile("facebook\\.com/groups/([^/?#]+)", Pattern.CASE_INSENSITIVE).matcher(u);
-        if (m.find()) return m.group(1);
-        return "كروب فيسبوك";
-    }
-
-    private boolean isDirectGroupUrl(String u) {
-        if (u == null) return false;
-        return Pattern.compile("facebook\\.com/groups/([^/?#]+)", Pattern.CASE_INSENSITIVE).matcher(u).find();
-    }
-
-    private String directGroupSearchUrl(String u, String q) {
-        Matcher m = Pattern.compile("facebook\\.com/groups/([^/?#]+)", Pattern.CASE_INSENSITIVE).matcher(u);
-        if (m.find()) {
-            return "https://www.facebook.com/groups/" + m.group(1) + "/search/?q=" + enc(q);
-        }
-        return "";
-    }
-
-    private void renderGroups() {
-        groupsBox.removeAllViews();
-        if (groups.isEmpty()) {
-            TextView empty = text("لم تضف أي كروب بعد.", 14, false);
-            empty.setPadding(0,dp(12),0,dp(12));
-            groupsBox.addView(empty);
-            return;
-        }
-        for (int i=0;i<groups.size();i++) {
-            final int idx=i;
-            String[] p=groups.get(i).split("\\|\\|\\|",2);
-            String n=p[0], u=p.length>1?p[1]:"";
-
-            LinearLayout card=box(LinearLayout.VERTICAL);
-            card.setPadding(dp(10),dp(10),dp(10),dp(10));
-            card.setBackgroundColor(Color.rgb(247,250,253));
-            TextView name=text(n,16,true); card.addView(name);
-            TextView link=text(u,11,false); card.addView(link);
-
-            LinearLayout row=box(LinearLayout.HORIZONTAL);
-            Button search=button("🔎 بحث داخل الكروب", Color.rgb(36,107,253));
-            search.setOnClickListener(v -> {
-                String q = query();
-                if (isDirectGroupUrl(u)) {
-                    open(directGroupSearchUrl(u, q));
-                } else {
-                    // رابط مشاركة أو اسم فقط: نبحث باسم الكروب + مواصفات السيارة في فيسبوك
-                    String combined = n + " " + q;
-                    open("https://www.facebook.com/search/groups/?q=" + enc(combined));
-                }
-            });
-            Button del=button("حذف", Color.rgb(185,55,55));
-            del.setOnClickListener(v -> { groups.remove(idx); saveGroups(); renderGroups(); });
-            row.addView(search, weight()); row.addView(spaceW(8)); row.addView(del);
-            card.addView(row);
-            groupsBox.addView(card, full());
-            groupsBox.addView(space(8));
-        }
-    }
-
-    private void open(String url) {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));
-        } catch (Exception e) {
-            Toast.makeText(this, "تعذر فتح الرابط", Toast.LENGTH_SHORT).show();
-        }
-    }
-
-    private String enc(String s) {
-        return URLEncoder.encode(s, StandardCharsets.UTF_8);
-    }
-
-    private void loadGroups() {
-        groups.clear();
-        groups.addAll(prefs.getStringSet("groups", new LinkedHashSet<>()));
-    }
-
-    private void saveGroups() {
-        prefs.edit().putStringSet("groups", new LinkedHashSet<>(groups)).apply();
-    }
-
     private void saveSearch() {
         prefs.edit()
             .putString("make", make.getText().toString())
@@ -293,6 +124,8 @@ public class MainActivity extends Activity {
         if(c>=0 && c<city.getCount()) city.setSelection(c);
     }
 
+    private TextView section(String s) { TextView t=text(s,19,true); t.setPadding(0,dp(4),0,dp(8)); return t; }
+    private EditText input(String hint, boolean numeric) { EditText e=new EditText(this); e.setHint(hint); e.setTextSize(16); e.setPadding(dp(12),dp(10),dp(12),dp(10)); if(numeric)e.setInputType(InputType.TYPE_CLASS_NUMBER); e.setSingleLine(true); e.setLayoutParams(full()); return e; }
     private LinearLayout box(int o) { LinearLayout l=new LinearLayout(this); l.setOrientation(o); return l; }
     private TextView text(String s,int size,boolean bold){ TextView t=new TextView(this); t.setText(s); t.setTextSize(size); if(bold)t.setTypeface(null,1); return t; }
     private Button button(String s,int color){ Button b=new Button(this); b.setText(s); b.setTextColor(Color.WHITE); b.setBackgroundColor(color); b.setAllCaps(false); return b; }
