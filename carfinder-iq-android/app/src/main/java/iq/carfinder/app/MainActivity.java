@@ -4,18 +4,17 @@ import android.app.*;
 import android.os.Bundle;
 import android.content.*;
 import android.graphics.Color;
+import android.provider.Settings;
 import android.text.InputType;
 import android.view.*;
 import android.widget.*;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class MainActivity extends Activity {
     private EditText make, model, yearFrom, yearTo, priceTo;
     private Spinner city;
     private SharedPreferences prefs;
-    private TextView groupCount;
+    private TextView fbStatus;
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
@@ -33,7 +32,9 @@ public class MainActivity extends Activity {
         root.addView(text("بحث موحّد: السوق المفتوح + iQ Cars + Facebook", 14, false));
         root.addView(space(14));
 
-        TextView note = text("النسخة V1.3: زر بحث واحد ونتائج داخل التطبيق. لا يوجد عدّاد مسافة.", 14, false);
+        TextView note = text(
+            "V1.5: تم إلغاء تسجيل دخول Facebook داخل التطبيق. الربط أصبح مع تطبيق Facebook المثبّت على الهاتف.",
+            14, false);
         note.setPadding(dp(12),dp(12),dp(12),dp(12));
         note.setBackgroundColor(Color.rgb(236,250,245));
         root.addView(note);
@@ -73,17 +74,23 @@ public class MainActivity extends Activity {
         root.addView(all, full());
 
         root.addView(space(18));
-        root.addView(section("Facebook"));
+        root.addView(section("ربط Facebook"));
 
-        groupCount = text("", 14, false);
-        root.addView(groupCount);
+        fbStatus = text("", 14, false);
+        root.addView(fbStatus);
 
-        Button importBtn = button("🔐 تسجيل الدخول واستيراد كروباتي", Color.rgb(24,119,242));
-        importBtn.setOnClickListener(v -> startActivity(new Intent(this, FacebookImportActivity.class)));
-        root.addView(importBtn, full());
+        Button enable = button("⚙️ تفعيل ربط Facebook", Color.rgb(24,119,242));
+        enable.setOnClickListener(v -> {
+            try {
+                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            } catch (Exception e) {
+                Toast.makeText(this, "تعذر فتح إعدادات إمكانية الوصول", Toast.LENGTH_LONG).show();
+            }
+        });
+        root.addView(enable, full());
 
         TextView fbNote = text(
-            "لا تحتاج إلى إدخال روابط الكروبات يدويًا. افتح Facebook داخل التطبيق، سجّل الدخول إن لزم، ثم افتح قائمة كروباتك واضغط «استيراد الكروبات الظاهرة».",
+            "فعّل خدمة «CarFinder IQ - Facebook Capture» مرة واحدة من إعدادات إمكانية الوصول. بعدها يستخدم التطبيق حساب Facebook المفتوح على هاتفك ويجمع فقط النصوص التي تظهر لك أثناء البحث.",
             13, false);
         fbNote.setPadding(dp(10),dp(10),dp(10),dp(10));
         fbNote.setBackgroundColor(Color.rgb(239,245,255));
@@ -95,9 +102,24 @@ public class MainActivity extends Activity {
 
     @Override protected void onResume() {
         super.onResume();
-        if (groupCount != null) {
-            Set<String> gs = prefs.getStringSet("fb_groups", new LinkedHashSet<>());
-            groupCount.setText("الكروبات المستوردة حاليًا: " + gs.size());
+        if (fbStatus != null) {
+            boolean enabled = isAccessibilityEnabled();
+            fbStatus.setText(enabled
+                ? "✅ ربط Facebook مفعّل."
+                : "⚠️ ربط Facebook غير مفعّل بعد.");
+        }
+    }
+
+    private boolean isAccessibilityEnabled() {
+        try {
+            String enabled = Settings.Secure.getString(
+                getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+            );
+            return enabled != null &&
+                enabled.toLowerCase().contains(getPackageName().toLowerCase() + "/.facebookcaptureservice");
+        } catch (Exception e) {
+            return false;
         }
     }
 
@@ -106,14 +128,22 @@ public class MainActivity extends Activity {
         ArrayList<String> q = new ArrayList<>();
         addIf(q, make.getText().toString());
         addIf(q, model.getText().toString());
+
         String yf = yearFrom.getText().toString().trim();
         String yt = yearTo.getText().toString().trim();
+
         if (!yf.isEmpty() && yf.equals(yt)) q.add(yf);
-        else { addIf(q, yf); addIf(q, yt); }
+        else {
+            addIf(q, yf);
+            addIf(q, yt);
+        }
+
         String c = String.valueOf(city.getSelectedItem());
         if (!"كل العراق".equals(c)) q.add(c);
+
         String p = priceTo.getText().toString().trim();
         if (!p.isEmpty()) q.add("أقل من " + p + " دولار");
+
         return String.join(" ", q);
     }
 
