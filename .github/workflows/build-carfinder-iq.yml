@@ -1,0 +1,49 @@
+name: Build CarFinder IQ APK
+
+on:
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'carfinder-iq-android/**'
+      - '.github/workflows/build-carfinder-iq.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.8'
+          cache: false
+
+      - name: Build Facebook Android bridge
+        working-directory: carfinder-iq-android/fbbridge
+        run: |
+          go get github.com/teslashibe/facebook-go@78a3aeeccf726aded5a370e70f58524512c61471
+          go get golang.org/x/mobile@latest
+          go get -tool golang.org/x/mobile/cmd/gobind
+          go mod tidy
+          go install golang.org/x/mobile/cmd/gomobile@latest
+          go install golang.org/x/mobile/cmd/gobind@latest
+          gomobile init
+          mkdir -p ../app/libs
+          gomobile bind -target=android -androidapi 24 -o ../app/libs/fbbridge.aar .
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build debug APK
+        run: gradle -p carfinder-iq-android :app:assembleDebug
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: CarFinderIQ-V1.3-APK
+          path: carfinder-iq-android/app/build/outputs/apk/debug/app-debug.apk
