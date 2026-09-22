@@ -4,186 +4,153 @@ import android.app.*;
 import android.os.Bundle;
 import android.content.*;
 import android.graphics.Color;
-import android.net.Uri;
 import android.webkit.*;
 import android.widget.*;
-import android.view.*;
-import org.json.*;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.concurrent.*;
-import fbbridge.Fbbridge;
+import java.util.*;
 
 public class ResultsActivity extends Activity {
+    private WebView web;
     private String query;
-    private LinearLayout content;
-    private ExecutorService exec = Executors.newSingleThreadExecutor();
+    private SharedPreferences prefs;
 
     @Override public void onCreate(Bundle b) {
         super.onCreate(b);
         query = getIntent().getStringExtra("query");
         if (query == null) query = "";
+        prefs = getSharedPreferences("carfinder_iq", MODE_PRIVATE);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
 
         TextView title = new TextView(this);
         title.setText("نتائج البحث: " + query);
-        title.setTextSize(17);
-        title.setPadding(dp(12),dp(12),dp(12),dp(10));
+        title.setTextSize(16);
+        title.setTypeface(null,1);
+        title.setPadding(dp(12),dp(12),dp(12),dp(8));
         root.addView(title);
 
         LinearLayout tabs = new LinearLayout(this);
         tabs.setOrientation(LinearLayout.HORIZONTAL);
-        Button iq = tab("iQ Cars");
+
         Button os = tab("السوق المفتوح");
+        Button iq = tab("iQ Cars");
         Button fb = tab("Facebook");
-        tabs.addView(iq, weight());
+
+        os.setOnClickListener(v -> loadOpenSooq());
+        iq.setOnClickListener(v -> loadIqCars());
+        fb.setOnClickListener(v -> loadFacebookIndex());
+
         tabs.addView(os, weight());
+        tabs.addView(iq, weight());
         tabs.addView(fb, weight());
         root.addView(tabs);
 
-        content = new LinearLayout(this);
-        content.setOrientation(LinearLayout.VERTICAL);
-        root.addView(content, new LinearLayout.LayoutParams(-1,0,1f));
+        web = new WebView(this);
+        WebSettings s = web.getSettings();
+        s.setJavaScriptEnabled(true);
+        s.setDomStorageEnabled(true);
+        s.setLoadsImagesAutomatically(true);
+        s.setUseWideViewPort(true);
+        s.setLoadWithOverviewMode(true);
 
-        iq.setOnClickListener(v -> showWeb("iqcars.net"));
-        os.setOnClickListener(v -> showWeb("iq.opensooq.com"));
-        fb.setOnClickListener(v -> showFacebook());
+        CookieManager.getInstance().setAcceptCookie(true);
+        CookieManager.getInstance().setAcceptThirdPartyCookies(web, true);
 
+        web.setWebViewClient(new WebViewClient());
+        web.setWebChromeClient(new WebChromeClient());
+
+        root.addView(web, new LinearLayout.LayoutParams(-1,0,1f));
         setContentView(root);
-        showWeb("iqcars.net");
+
+        loadOpenSooq();
     }
 
-    private Button tab(String t) {
+    private void loadOpenSooq() {
+        String url = "https://iq.opensooq.com/ar/%D8%B3%D9%8A%D8%A7%D8%B1%D8%A7%D8%AA-%D9%88%D9%85%D8%B1%D9%83%D8%A8%D8%A7%D8%AA?term=" + enc(query);
+        web.loadUrl(url);
+    }
+
+    private void loadIqCars() {
+        String q = "site:iqcars.net " + query;
+        web.loadUrl("https://www.google.com/search?q=" + enc(q));
+    }
+
+    private void loadFacebookIndex() {
+        Set<String> stored = prefs.getStringSet("fb_groups", new LinkedHashSet<>());
+        ArrayList<String> groups = new ArrayList<>(stored);
+
+        StringBuilder html = new StringBuilder();
+        html.append("<html dir='rtl'><head><meta name='viewport' content='width=device-width,initial-scale=1'>");
+        html.append("<style>");
+        html.append("body{font-family:sans-serif;padding:16px;background:#f6f8fb;color:#17202a}");
+        html.append(".card{background:white;border-radius:14px;padding:14px;margin:10px 0;box-shadow:0 2px 8px #0001}");
+        html.append("a{display:block;background:#1877f2;color:white;text-decoration:none;padding:12px;border-radius:10px;text-align:center;margin-top:8px}");
+        html.append(".muted{color:#657786;font-size:13px}");
+        html.append("</style></head><body>");
+        html.append("<h2>نتائج Facebook</h2>");
+        html.append("<div class='muted'>البحث: ").append(esc(query)).append("</div>");
+
+        if (groups.isEmpty()) {
+            html.append("<div class='card'><b>لم يتم استيراد كروبات بعد.</b>");
+            html.append("<p>ارجع للشاشة الرئيسية واضغط «تسجيل الدخول واستيراد كروباتي».</p></div>");
+        } else {
+            html.append("<p>الكروبات المستوردة: ").append(groups.size()).append("</p>");
+            for (String item : groups) {
+                String[] p = item.split("\\|\\|\\|",2);
+                String name = p.length > 0 ? p[0] : "كروب";
+                String url = p.length > 1 ? p[1] : "";
+
+                String searchUrl;
+                if (!url.isEmpty()) {
+                    if (url.endsWith("/")) url = url.substring(0,url.length()-1);
+                    searchUrl = url + "/search/?q=" + enc(query);
+                } else {
+                    searchUrl = "https://www.facebook.com/search/groups/?q=" + enc(name + " " + query);
+                }
+
+                html.append("<div class='card'><b>").append(esc(name)).append("</b>");
+                html.append("<a href='").append(escAttr(searchUrl)).append("'>عرض نتائج هذا الكروب</a></div>");
+            }
+        }
+
+        html.append("</body></html>");
+        web.loadDataWithBaseURL("https://www.facebook.com/", html.toString(), "text/html", "UTF-8", null);
+    }
+
+    private Button tab(String s) {
         Button b = new Button(this);
-        b.setText(t);
+        b.setText(s);
         b.setAllCaps(false);
+        b.setTextColor(Color.WHITE);
+        b.setBackgroundColor(Color.rgb(32,73,107));
         return b;
     }
 
-    private void showWeb(String domain) {
-        content.removeAllViews();
-        WebView w = new WebView(this);
-        w.getSettings().setJavaScriptEnabled(true);
-        w.getSettings().setDomStorageEnabled(true);
-        w.setWebViewClient(new WebViewClient());
-        String q = "site:" + domain + " " + query;
-        w.loadUrl("https://www.google.com/search?q=" + enc(q));
-        content.addView(w, new LinearLayout.LayoutParams(-1,-1));
+    private String enc(String s) {
+        return URLEncoder.encode(s == null ? "" : s, StandardCharsets.UTF_8);
     }
 
-    private void showFacebook() {
-        content.removeAllViews();
-        ProgressBar progress = new ProgressBar(this);
-        TextView status = new TextView(this);
-        status.setText("جاري جلب كروبات حسابك والبحث في منشوراتها…");
-        status.setTextSize(16);
-        status.setPadding(dp(12),dp(12),dp(12),dp(12));
-        content.addView(progress);
-        content.addView(status);
-
-        String cookies = CookieManager.getInstance().getCookie("https://www.facebook.com/");
-        if (cookies == null || !cookies.contains("c_user=") || !cookies.contains("xs=")) {
-            content.removeAllViews();
-            TextView t = new TextView(this);
-            t.setText("لم يتم ربط Facebook. ارجع إلى الشاشة الرئيسية واضغط «ربط حساب Facebook».");
-            t.setPadding(dp(16),dp(16),dp(16),dp(16));
-            content.addView(t);
-            return;
-        }
-
-        exec.submit(() -> {
-            try {
-                String json = Fbbridge.searchJoinedGroups(cookies, query);
-                runOnUiThread(() -> renderFacebook(json));
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    content.removeAllViews();
-                    TextView t = new TextView(this);
-                    t.setText("تعذر البحث في Facebook الآن:\n" + e.getMessage() + "\n\nقد تحتاج إلى إعادة تسجيل الدخول إذا انتهت الجلسة.");
-                    t.setPadding(dp(16),dp(16),dp(16),dp(16));
-                    content.addView(t);
-                });
-            }
-        });
+    private String esc(String s) {
+        if (s == null) return "";
+        return s.replace("&","&amp;").replace("<","&lt;").replace(">","&gt;");
     }
 
-    private void renderFacebook(String json) {
-        content.removeAllViews();
-        ScrollView scroll = new ScrollView(this);
-        LinearLayout list = new LinearLayout(this);
-        list.setOrientation(LinearLayout.VERTICAL);
-        list.setPadding(dp(10),dp(10),dp(10),dp(20));
-        scroll.addView(list);
-
-        try {
-            JSONArray arr = new JSONArray(json);
-            TextView count = new TextView(this);
-            count.setText("تم العثور على " + arr.length() + " منشور مطابق");
-            count.setTextSize(16);
-            count.setPadding(dp(4),dp(4),dp(4),dp(12));
-            list.addView(count);
-
-            if (arr.length() == 0) {
-                TextView none = new TextView(this);
-                none.setText("لا توجد نتائج مطابقة في أول صفحة من منشورات الكروبات التي أمكن قراءتها.");
-                none.setPadding(dp(10),dp(10),dp(10),dp(10));
-                list.addView(none);
-            }
-
-            for (int i=0;i<arr.length();i++) {
-                JSONObject o=arr.getJSONObject(i);
-                LinearLayout card=new LinearLayout(this);
-                card.setOrientation(LinearLayout.VERTICAL);
-                card.setPadding(dp(12),dp(12),dp(12),dp(12));
-                card.setBackgroundColor(Color.rgb(247,249,252));
-
-                TextView g=new TextView(this);
-                g.setText("👥 " + o.optString("groupName"));
-                g.setTextSize(16);
-                g.setTypeface(null,1);
-                card.addView(g);
-
-                TextView author=new TextView(this);
-                author.setText("الناشر: " + o.optString("authorName"));
-                card.addView(author);
-
-                TextView msg=new TextView(this);
-                msg.setText(o.optString("message"));
-                msg.setTextSize(15);
-                msg.setPadding(0,dp(8),0,dp(8));
-                card.addView(msg);
-
-                Button open=new Button(this);
-                open.setText("فتح المنشور في Facebook");
-                String url=o.optString("url");
-                open.setOnClickListener(v -> {
-                    try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); }
-                    catch(Exception ignored) {}
-                });
-                card.addView(open);
-
-                list.addView(card, new LinearLayout.LayoutParams(-1,-2));
-                Space sp=new Space(this);
-                sp.setLayoutParams(new LinearLayout.LayoutParams(1,dp(8)));
-                list.addView(sp);
-            }
-        } catch(Exception e) {
-            TextView t=new TextView(this);
-            t.setText("خطأ في قراءة النتائج: " + e.getMessage());
-            list.addView(t);
-        }
-
-        content.addView(scroll, new LinearLayout.LayoutParams(-1,-1));
+    private String escAttr(String s) {
+        return esc(s).replace("'","&#39;").replace("\"","&quot;");
     }
 
-    private String enc(String s) { return URLEncoder.encode(s, StandardCharsets.UTF_8); }
-    private LinearLayout.LayoutParams weight(){ return new LinearLayout.LayoutParams(0,-2,1f); }
-    private int dp(int v){ return Math.round(v*getResources().getDisplayMetrics().density); }
+    private LinearLayout.LayoutParams weight() {
+        return new LinearLayout.LayoutParams(0,-2,1f);
+    }
 
-    @Override protected void onDestroy() {
-        exec.shutdownNow();
-        super.onDestroy();
+    private int dp(int v) {
+        return Math.round(v*getResources().getDisplayMetrics().density);
+    }
+
+    @Override public void onBackPressed() {
+        if (web != null && web.canGoBack()) web.goBack();
+        else super.onBackPressed();
     }
 }
