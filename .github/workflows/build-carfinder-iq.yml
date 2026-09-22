@@ -20,13 +20,15 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.5'
+          go-version: '1.26.8'
           cache: false
 
       - name: Build Facebook Android bridge
         working-directory: carfinder-iq-android/fbbridge
         run: |
           go get github.com/teslashibe/facebook-go@78a3aeeccf726aded5a370e70f58524512c61471
+          go get golang.org/x/mobile@latest
+          go get -tool golang.org/x/mobile/cmd/gobind
           go mod tidy
           go install golang.org/x/mobile/cmd/gomobile@latest
           go install golang.org/x/mobile/cmd/gobind@latest
