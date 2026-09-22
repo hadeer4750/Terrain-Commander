@@ -1,0 +1,28 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'iq.carfinder.app'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'iq.carfinder.app'
+        minSdk 24
+        targetSdk 35
+        versionCode 4
+        versionName '1.4'
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
