@@ -8,7 +8,7 @@
         android:usesCleartextTraffic="false"
         android:theme="@android:style/Theme.Material.Light.NoActionBar">
         <activity android:name=".ResultsActivity" android:exported="false" />
-        <activity android:name=".FacebookLoginActivity" android:exported="false" />
+        <activity android:name=".FacebookImportActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
